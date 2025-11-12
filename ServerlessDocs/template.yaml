@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  CloudDocs Backend (FastAPI + S3 + DynamoDB)
+
+Globals:
+  Function:
+    Timeout: 31
+    MemorySize: 512
+    LoggingConfig:
+      LogFormat: JSON
+
+Resources:
+  CloudDocsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: hello_world/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      AutoPublishAlias: live
+      Policies:
+        - AmazonS3FullAccess
+        - AmazonDynamoDBFullAccess
+      Events:
+        RootEvent:
+          Type: Api
+          Properties:
+            Path: /
+            Method: ANY
+
+        ProxyEvent:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+  ApplicationResourceGroup:
+    Type: AWS::ResourceGroups::Group
+    Properties:
+      Name:
+        Fn::Sub: ApplicationInsights-SAM-${AWS::StackName}
+      ResourceQuery:
+        Type: CLOUDFORMATION_STACK_1_0
+
+  ApplicationInsightsMonitoring:
+    Type: AWS::ApplicationInsights::Application
+    Properties:
+      ResourceGroupName:
+        Ref: ApplicationResourceGroup
+      AutoConfigurationEnabled: "true"
+
+Outputs:
+  CloudDocsApi:
+    Description: API Gateway endpoint URL for Prod stage (FastAPI)
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/"
+  CloudDocsFunctionArn:
+    Description: Lambda Function ARN
+    Value: !GetAtt CloudDocsFunction.Arn
+  CloudDocsFunctionRole:
+    Description: IAM Role for Lambda Function
+    Value: !GetAtt CloudDocsFunctionRole.Arn

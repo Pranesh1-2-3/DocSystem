@@ -1,0 +1,7 @@
+requests
+fastapi
+mangum
+pydantic
+starlette
+python-jose
+boto3
