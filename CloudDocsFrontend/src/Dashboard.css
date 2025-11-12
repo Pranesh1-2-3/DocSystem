@@ -3,12 +3,12 @@
   text-align: center;
   margin-top: 50px;
   padding: 2rem;
-  background: var(--card-color); /* Use white card */
+  background: var(--card-color);
   border-radius: var(--border-radius);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Lighter shadow */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   max-width: 1000px;
   margin: 2rem auto;
-  color: var(--font-color); /* Dark text */
+  color: var(--font-color);
 }
 
 .dashboard-header {
@@ -26,7 +26,7 @@
 .dashboard-header h3 {
   margin: 0;
   font-weight: 400;
-  color: #555; /* Darker gray */
+  color: #555;
 }
 
 .logout-button {
@@ -41,7 +41,7 @@
 .files-toggle-section {
   margin: 1.5rem 0;
   padding: 1.5rem;
-  background: #f8f9fa; /* Light gray background */
+  background: #f8f9fa;
   border-radius: var(--border-radius);
 }
 
@@ -49,15 +49,55 @@
   margin-top: 20px;
 }
 
+/* Toolbar is correctly aligned with flexbox */
+.files-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap; /* Allow wrapping on small screens */
+  gap: 15px;
+}
+
+.search-bar-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.search-input {
+  width: 300px;
+  padding: 8px 12px 8px 35px;
+  border: 1px solid #d1d5db;
+  border-radius: var(--border-radius);
+  font-size: 0.9rem;
+}
+
+.search-input:focus {
+  border-color: var(--primary-color);
+  outline: none;
+}
+
 .delete-button {
-  margin-bottom: 15px;
-  padding: 8px 16px;
+  padding: 8px 12px;
   background: var(--error-color);
   color: white;
   border: none;
   border-radius: var(--border-radius);
   cursor: pointer;
   transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.9rem;
+  margin: 0;
 }
 
 .delete-button:hover {
@@ -65,80 +105,224 @@
 }
 
 .delete-button:disabled {
-  background: #9ca3af; /* Lighter disabled color */
+  background: #9ca3af;
   cursor: not-allowed;
 }
 
-.files-table {
-  margin: 0 auto;
-  border-collapse: collapse;
-  width: 100%;
-  text-align: left;
-  background: #ffffff; /* White table */
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+/* --- REMOVED .files-table STYLES --- */
+
+/* --- NEW FILE GRID STYLES --- */
+
+.file-grid-container {
+  display: grid;
+  /* 3 columns on desktop, as requested */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
 }
 
-.files-table thead {
-  background: #f3f4f6; /* Lightest gray header */
-  color: #374151; /* Dark text for header */
-  border-bottom: 2px solid #e5e7eb;
-}
-
-.files-table th,
-.files-table td {
-  padding: 12px 15px;
-  border-bottom: 1px solid #e5e7eb; /* Light border */
-}
-
-.files-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.files-table tbody tr:hover {
-  background-color: #f8f9fa; /* Slight hover */
-}
-
-.no-files-row td {
+.no-files-message {
+  grid-column: 1 / -1; /* Span all columns */
   text-align: center;
-  padding: 15px;
+  padding: 40px;
   color: #6b7280;
+  font-size: 1.1rem;
 }
 
-.actions-cell {
+.file-card {
+  position: relative;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: var(--border-radius);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.file-card:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+}
+
+.file-card.selected {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color);
+}
+
+.file-card-checkbox {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+  height: 18px;
+  width: 18px;
+  cursor: pointer;
+}
+
+.file-card-preview {
+  height: 180px; /* Gives the card its square-ish shape */
   display: flex;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 10px; /* Add padding for icons */
+}
+
+/* This is the icon for non-image files */
+.file-preview-icon {
+  font-size: 4rem; 
+  color: #4b5563;
+}
+
+/* This is the actual image preview */
+.file-preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* GDrive style cover */
+}
+
+.file-preview-loader {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+.file-card-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  gap: 10px;
+}
+
+.file-card-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+  /* Truncate long filenames */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Spacing between icon buttons */
 }
 
 .action-button {
   border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
+  background: none; /* Make buttons transparent */
+  color: #6b7280; /* Neutral icon color */
+  border-radius: 50%;
   cursor: pointer;
-  color: white;
-  font-weight: 500;
-  transition: background-color 0.3s ease, transform 0.2s ease;
+  font-size: 1rem;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  padding: 0; /* Remove padding */
 }
 
 .action-button:hover {
-  transform: scale(1.05);
+  background-color: #f3f4f6;
+  color: #111827;
+  transform: none; /* Remove previous transform */
 }
 
-.download-button {
-  background-color: #008cba;
-}
 .download-button:hover {
-  background-color: #007399;
+  color: #007bff;
 }
 
-.copy-button {
-  background-color: #28a745;
-}
 .copy-button:hover {
-  background-color: #218838;
+  color: #28a745;
 }
 
 .copy-button.copied {
-  background-color: #20c997;
+  color: #28a745; /* Show green check */
+}
+
+
+/* --- RESPONSIVENESS --- */
+
+/* 2 columns for tablets */
+@media (max-width: 900px) {
+  .file-grid-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .search-input {
+    width: 200px;
+  }
+}
+
+/* 1 column for mobile */
+@media (max-width: 600px) {
+  .file-grid-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .files-toolbar {
+    flex-direction: column;
+    align-items: stretch; /* Full width */
+  }
+
+  .search-input {
+    width: 100%; /* Full width search */
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.file-preview-icon {
+  font-size: 4rem;
+  color: #4b5563; /* Default color */
+}
+
+/* --- NEW BRANDED ICON COLORS --- */
+.icon-word { color: #2b579a; }
+.icon-excel { color: #1d6f42; }
+.icon-ppt { color: #d04423; }
+.icon-pdf { color: #e53e3e; }
+.icon-image { color: #ac40c4; }
+.icon-audio { color: #f38f00; }
+.icon-video { color: #a13d9d; }
+.icon-archive { color: #f0c000; }
+.icon-code { color: #007acc; }
+.icon-text { color: #555; }
+.icon-default { color: #6b7280; }
+/* --- END NEW BRANDED ICON COLORS --- */
+
+
+/* This is the actual image preview */
+.file-preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* GDrive style cover */
+}
+
+/* ... (rest of the file remains the same) ... */
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
