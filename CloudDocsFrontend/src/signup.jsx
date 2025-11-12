@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { signUpUser, confirmUser } from "./lib/cognito";
 
-export default function Signup({ onSignupSuccess }) {
+export default function Signup({ onSignupSuccess, setToast }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
@@ -9,32 +9,41 @@ export default function Signup({ onSignupSuccess }) {
   const [step, setStep] = useState("signup");
 
   const handleSignup = () => {
+    if (!email || !password || !phone) {
+      setToast("Please fill in all fields.", "error");
+      return;
+    }
     signUpUser(
       email,
       password,
       phone,
       () => {
-        alert("Verification code sent to your email!");
+        setToast("Verification code sent to your email!", "success");
         setStep("confirm");
       },
-      (err) => alert(err.message)
+      (err) => setToast(err.message, "error")
     );
   };
 
   const handleConfirm = () => {
+    if (!code) {
+      setToast("Please enter the verification code.", "error");
+      return;
+    }
     confirmUser(
       email,
       code,
       () => {
-        alert("Signup confirmed! You can now log in.");
+        setToast("Signup confirmed! You can now log in.", "success");
         onSignupSuccess();
       },
-      (err) => alert(err.message)
+      (err) => setToast(err.message, "error")
     );
   };
 
   return (
-    <div className="signup-container" style={{ textAlign: "center", marginTop: 50 }}>
+    // Remove the old wrapper div, just return the form elements
+    <>
       {step === "signup" ? (
         <>
           <h2>Create a CloudDocs Account</h2>
@@ -43,19 +52,19 @@ export default function Signup({ onSignupSuccess }) {
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-          /><br />
+          />
           <input
             type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-          /><br />
+          />
           <input
             type="text"
             placeholder="Phone Number (+911234567890)"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-          /><br />
+          />
           <button onClick={handleSignup}>Sign Up</button>
         </>
       ) : (
@@ -66,10 +75,10 @@ export default function Signup({ onSignupSuccess }) {
             placeholder="Verification Code"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-          /><br />
+          />
           <button onClick={handleConfirm}>Confirm</button>
         </>
       )}
-    </div>
+    </>
   );
 }

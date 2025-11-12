@@ -1,10 +1,10 @@
-import React, { useState } from "react";
-import Login from "./login";
+import React, { useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
+import "./Dashboard.css"; // Import the new CSS file
 
 const API = import.meta.env.VITE_API_BASE;
 
-export default function Dashboard({ token, setToken }) {
+export default function Dashboard({ token, setToken, setToast }) {
   const [file, setFile] = useState(null);
   const [files, setFiles] = useState([]);
   const [showFiles, setShowFiles] = useState(false);
@@ -30,26 +30,46 @@ export default function Dashboard({ token, setToken }) {
       setShowFiles(true);
     } catch (err) {
       console.error("Error fetching files:", err);
-      alert("Failed to fetch files. Check console for details.");
+      setToast("Failed to fetch files. Check console for details.", "error");
     }
   };
 
-  const upload = async () => {
-    if (!file) return alert("Select a file first!");
-    const res = await fetch(`${API}/upload?filename=${file.name}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    await fetch(data.uploadUrl, { method: "PUT", body: file });
-    alert("File uploaded successfully!");
+  // Automatically fetch files on component mount
+  useEffect(() => {
     fetchFiles();
+  }, []);
+
+  const upload = async () => {
+    if (!file) {
+      setToast("Select a file first!", "error");
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/upload?filename=${file.name}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      await fetch(data.uploadUrl, { method: "PUT", body: file });
+      setToast("File uploaded successfully!", "success");
+      setFile(null); // Clear the file input
+      document.querySelector('input[type="file"]').value = ""; // Reset file input
+      fetchFiles();
+    } catch (err) {
+      console.error("Error uploading file:", err);
+      setToast("File upload failed.", "error");
+    }
   };
 
   const deleteSelected = async () => {
-    if (selectedFiles.length === 0) return alert("No files selected!");
-    if (!window.confirm("Are you sure you want to delete the selected files?")) return;
+    if (selectedFiles.length === 0) {
+      setToast("No files selected!", "error");
+      return;
+    }
+    if (!window.confirm("Are you sure you want to delete the selected files?"))
+      return;
 
+    let deleteFailed = false;
     for (const file of selectedFiles) {
       try {
         await fetch(`${API}/delete?fileId=${file.fileId}`, {
@@ -57,11 +77,16 @@ export default function Dashboard({ token, setToken }) {
           headers: { Authorization: `Bearer ${token}` },
         });
       } catch (err) {
+        deleteFailed = true;
         console.error("Failed to delete:", file.filename, err);
       }
     }
 
-    alert("Selected files deleted!");
+    if (deleteFailed) {
+      setToast("Some files failed to delete. Check console.", "error");
+    } else {
+      setToast("Selected files deleted!", "success");
+    }
     fetchFiles();
     setSelectedFiles([]);
   };
@@ -84,14 +109,15 @@ export default function Dashboard({ token, setToken }) {
       const data = await res.json();
       if (data.downloadUrl) {
         await navigator.clipboard.writeText(data.downloadUrl);
+        setToast("Link copied to clipboard!", "success");
         setCopiedFileId(fileId);
         setTimeout(() => setCopiedFileId(null), 2000);
       } else {
-        alert("Failed to generate link.");
+        setToast("Failed to generate link.", "error");
       }
     } catch (err) {
       console.error("Error copying link:", err);
-      alert("Failed to copy link.");
+      setToast("Failed to copy link.", "error");
     }
   };
 
@@ -103,136 +129,115 @@ export default function Dashboard({ token, setToken }) {
   const user = jwtDecode(token);
 
   return (
-    <div style={{ textAlign: "center", marginTop: 50 }}>
-      <h1>CloudDocs Dashboard</h1>
-      <h3>Welcome, {user.email}</h3>
-      <button onClick={logout}>Logout</button>
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <div>
+          <h1>CloudDocs</h1>
+          <h3>Welcome, {user.email}</h3>
+        </div>
+        <button onClick={logout} className="logout-button">
+          Logout
+        </button>
+      </div>
+
       <hr />
 
-      <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-      <button onClick={upload}>Upload</button>
+      <div className="upload-section">
+        <input type="file" onChange={(e) => setFile(e.target.files[0])} />
+        <button onClick={upload} disabled={!file}>Upload</button>
+      </div>
 
       <hr />
-      {!showFiles ? (
-        <button onClick={fetchFiles}>View My Files</button>
-      ) : (
-        <button onClick={() => setShowFiles(false)}>Hide Files</button>
-      )}
+
+      <div className="files-toggle-section">
+        <button onClick={showFiles ? () => setShowFiles(false) : fetchFiles}>
+          {showFiles ? "Hide My Files" : "View My Files"}
+        </button>
+      </div>
 
       {showFiles && (
-        <div style={{ marginTop: 20 }}>
+        <div className="files-section">
           <button
             onClick={deleteSelected}
             disabled={selectedFiles.length === 0}
-            style={{
-              marginBottom: "10px",
-              padding: "6px 12px",
-              background: "red",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-              cursor: "pointer",
-            }}
+            className="delete-button"
           >
-            Delete Selected
+            Delete Selected ({selectedFiles.length})
           </button>
 
-          <table
-            style={{
-              margin: "0 auto",
-              borderCollapse: "collapse",
-              width: "80%",
-              textAlign: "left",
-              background: "#0a0000ff",
-              borderRadius: "10px",
-              overflow: "hidden",
-            }}
-          >
-            <thead style={{ background: "#004b8d", color: "white" }}>
+          <table className="files-table">
+            <thead>
               <tr>
-                <th style={{ padding: "10px" }}>Select</th>
-                <th style={{ padding: "10px" }}>Filename</th>
-                <th style={{ padding: "10px" }}>Upload Date</th>
-                <th style={{ padding: "10px" }}>Size (KB)</th>
-                <th style={{ padding: "10px" }}>Actions</th>
+                <th>Select</th>
+                <th>Filename</th>
+                <th>Upload Date</th>
+                <th>Size (KB)</th>
+                <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {files.length === 0 ? (
-                <tr>
-                  <td colSpan="5" style={{ textAlign: "center", padding: "15px" }}>
-                    No files found
-                  </td>
+                <tr className="no-files-row">
+                  <td colSpan="5">No files found</td>
                 </tr>
               ) : (
                 files.map((f) => (
                   <tr key={f.fileId}>
-                    <td style={{ padding: "8px" }}>
+                    <td>
                       <input
                         type="checkbox"
-                        checked={selectedFiles.some((sf) => sf.fileId === f.fileId)}
+                        checked={selectedFiles.some(
+                          (sf) => sf.fileId === f.fileId
+                        )}
                         onChange={() => toggleFileSelection(f)}
                       />
                     </td>
-                    <td style={{ padding: "8px" }}>{f.filename}</td>
-                    <td style={{ padding: "8px" }}>
+                    <td>{f.filename}</td>
+                    <td>
                       {f.createdAt
-                        ? new Date(parseInt(f.createdAt) * 1000).toLocaleString()
+                        ? new Date(
+                            parseInt(f.createdAt) * 1000
+                          ).toLocaleString()
                         : "N/A"}
                     </td>
-                    <td style={{ padding: "8px" }}>
+                    <td>
                       {f.size ? (f.size / 1024).toFixed(2) : "N/A"}
                     </td>
-                    <td style={{ padding: "8px", display: "flex", gap: "8px" }}>
+                    <td className="actions-cell">
                       <button
                         onClick={async () => {
                           try {
-                            const res = await fetch(`${API}/download?fileId=${f.fileId}`, {
-                              headers: { Authorization: `Bearer ${token}` },
-                            });
+                            const res = await fetch(
+                              `${API}/download?fileId=${f.fileId}`,
+                              {
+                                headers: { Authorization: `Bearer ${token}` },
+                              }
+                            );
                             const data = await res.json();
                             if (data.downloadUrl) {
                               window.open(data.downloadUrl, "_blank");
                             } else {
-                              alert("Failed to get download link");
+                              setToast("Failed to get download link", "error");
                             }
                           } catch (err) {
                             console.error("Download failed:", err);
-                            alert("Error downloading file.");
+                            setToast("Error downloading file.", "error");
                           }
                         }}
-                        style={{
-                          backgroundColor: "#008CBA",
-                          color: "white",
-                          border: "none",
-                          padding: "6px 12px",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
+                        className="action-button download-button"
                       >
                         Download
                       </button>
 
-                      {/* Copy Link Button */}
-                      <div style={{ position: "relative", display: "inline-block" }}>
-                        <button
-                          onClick={() => copyLink(f.fileId)}
-                          style={{
-                            backgroundColor: copiedFileId === f.fileId ? "#20c997" : "#28a745",
-                            color: "white",
-                            border: "none",
-                            padding: "6px 12px",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            transition: "background-color 0.3s ease",
-                          }}
-                        >
-                          {copiedFileId === f.fileId ? "✓ Copied!" : "Copy Link"}
-                        </button>
-                        {copiedFileId === f.fileId
-                      }
-                      </div>
+                      <button
+                        onClick={() => copyLink(f.fileId)}
+                        className={`action-button copy-button ${
+                          copiedFileId === f.fileId ? "copied" : ""
+                        }`}
+                      >
+                        {copiedFileId === f.fileId ? "✓ Copied!" : "Copy Link"}
+                      </button>
                     </td>
                   </tr>
                 ))

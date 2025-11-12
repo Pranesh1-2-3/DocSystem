@@ -1,0 +1,120 @@
+/* src/Auth.css */
+
+.auth-page-wrapper {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+/* Left Panel (Form) */
+.auth-left-panel {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #ffffff;
+  padding: 2rem;
+}
+
+.auth-form-window {
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+}
+
+.auth-form-window h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 2rem;
+}
+
+/* Right Panel (Vector Art + Text) */
+.auth-right-panel {
+  flex: 1.2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #f0f2f5;
+  padding: 3rem;
+  text-align: left;
+}
+
+.auth-right-panel-content {
+  max-width: 450px;
+}
+
+.auth-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+}
+
+.auth-subtitle {
+  font-size: 1.1rem;
+  color: #4b5563;
+  line-height: 1.6;
+  margin-bottom: 2.5rem;
+}
+
+.auth-vector-art {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+}
+
+/* Minimalist Form Elements */
+.auth-form-window input {
+  background: #f8f9fa;
+  border: 1px solid #d1d5db;
+  color: #111827;
+  padding: 14px;
+  font-size: 1rem;
+}
+
+.auth-form-window input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+  outline: none;
+}
+
+.auth-form-window button {
+  width: 100%;
+  padding: 14px;
+  font-size: 1rem;
+  margin-top: 10px;
+}
+
+/* Auth Switch Button */
+.auth-switch-button {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  background: none;
+  border: none;
+  text-decoration: none;
+  margin-top: 1.5rem;
+  padding: 0;
+  cursor: pointer;
+}
+
+.auth-switch-button:hover {
+  text-decoration: underline;
+  background: none;
+  transform: none;
+  color: var(--primary-hover);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .auth-right-panel {
+    display: none;
+  }
+  .auth-left-panel {
+    flex: 1;
+  }
+}

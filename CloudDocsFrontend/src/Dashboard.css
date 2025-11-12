@@ -1,0 +1,144 @@
+/* src/Dashboard.css */
+.dashboard-container {
+  text-align: center;
+  margin-top: 50px;
+  padding: 2rem;
+  background: var(--card-color); /* Use white card */
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Lighter shadow */
+  max-width: 1000px;
+  margin: 2rem auto;
+  color: var(--font-color); /* Dark text */
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-header h1 {
+  margin: 0;
+  color: #000;
+}
+
+.dashboard-header h3 {
+  margin: 0;
+  font-weight: 400;
+  color: #555; /* Darker gray */
+}
+
+.logout-button {
+  background-color: var(--error-color);
+}
+
+.logout-button:hover {
+  background-color: #b21f2d;
+}
+
+.upload-section,
+.files-toggle-section {
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  background: #f8f9fa; /* Light gray background */
+  border-radius: var(--border-radius);
+}
+
+.files-section {
+  margin-top: 20px;
+}
+
+.delete-button {
+  margin-bottom: 15px;
+  padding: 8px 16px;
+  background: var(--error-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.delete-button:hover {
+  background: #b21f2d;
+}
+
+.delete-button:disabled {
+  background: #9ca3af; /* Lighter disabled color */
+  cursor: not-allowed;
+}
+
+.files-table {
+  margin: 0 auto;
+  border-collapse: collapse;
+  width: 100%;
+  text-align: left;
+  background: #ffffff; /* White table */
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.files-table thead {
+  background: #f3f4f6; /* Lightest gray header */
+  color: #374151; /* Dark text for header */
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.files-table th,
+.files-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #e5e7eb; /* Light border */
+}
+
+.files-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.files-table tbody tr:hover {
+  background-color: #f8f9fa; /* Slight hover */
+}
+
+.no-files-row td {
+  text-align: center;
+  padding: 15px;
+  color: #6b7280;
+}
+
+.actions-cell {
+  display: flex;
+  gap: 8px;
+}
+
+.action-button {
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: white;
+  font-weight: 500;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.action-button:hover {
+  transform: scale(1.05);
+}
+
+.download-button {
+  background-color: #008cba;
+}
+.download-button:hover {
+  background-color: #007399;
+}
+
+.copy-button {
+  background-color: #28a745;
+}
+.copy-button:hover {
+  background-color: #218838;
+}
+
+.copy-button.copied {
+  background-color: #20c997;
+}
