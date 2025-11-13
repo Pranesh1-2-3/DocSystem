@@ -19,12 +19,44 @@ import {
   FaTrash,
   FaCheck,
   FaSearch,
+  FaTags,
+  FaEdit,
   FaShareAlt
 } from "react-icons/fa";
 
 const API = import.meta.env.VITE_API_BASE;
 
-// --- getFileIcon FUNCTION ---
+const PREDEFINED_COLORS = [
+  { bg: "#E57373", text: "#000000" },
+  { bg: "#F06292", text: "#000000" },
+  { bg: "#BA68C8", text: "#FFFFFF" },
+  { bg: "#9575CD", text: "#FFFFFF" },
+  { bg: "#7986CB", text: "#FFFFFF" },
+  { bg: "#64B5F6", text: "#000000" },
+  { bg: "#4FC3F7", text: "#000000" },
+  { bg: "#4DD0E1", text: "#000000" },
+  { bg: "#4DB6AC", text: "#000000" },
+  { bg: "#81C784", text: "#000000" },
+  { bg: "#AED581", text: "#000000" },
+  { bg: "#DCE775", text: "#000000" },
+  { bg: "#FFF176", text: "#000000" },
+  { bg: "#FFD54F", text: "#000000" },
+  { bg: "#FFB74D", text: "#000000" },
+  { bg: "#FF8A65", text: "#000000" },
+  { bg: "#A1887F", text: "#FFFFFF" },
+  { bg: "#90A4AE", text: "#000000" },
+];
+
+const getTagColor = (tag) => {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  hash = Math.abs(hash);
+  const index = hash % PREDEFINED_COLORS.length;
+  return PREDEFINED_COLORS[index];
+};
+
 const getFileIcon = (filename) => {
   const extension = filename.split(".").pop().toLowerCase();
   const iconProps = {
@@ -86,7 +118,6 @@ const getFileIcon = (filename) => {
   }
 };
 
-// --- FilePreview Component ---
 function FilePreview({ file, token }) {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -132,7 +163,6 @@ function FilePreview({ file, token }) {
   return getFileIcon(file.filename);
 }
 
-// --- Dashboard Component ---
 export default function Dashboard({ token, setToken, setToast }) {
   const [file, setFile] = useState(null);
   const [files, setFiles] = useState([]);
@@ -140,6 +170,17 @@ export default function Dashboard({ token, setToken, setToast }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [copiedFileId, setCopiedFileId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [uploadFilename, setUploadFilename] = useState("");
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [currentTags, setCurrentTags] = useState([]);
+  const [editingFile, setEditingFile] = useState(null);
+  const [modalTags, setModalTags] = useState([]);
+  const [allTags, setAllTags] = useState([]);
+  const [selectedTagFilter, setSelectedTagFilter] = useState(null);
+  const [renamingFile, setRenamingFile] = useState(null);
+  const [newFilename, setNewFilename] = useState("");
+
+  const user = jwtDecode(token);
 
   const fetchFiles = async () => {
     try {
@@ -147,14 +188,27 @@ export default function Dashboard({ token, setToken, setToast }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
+      let fetchedFiles = [];
 
       if (Array.isArray(data)) {
-        setFiles(data);
+        fetchedFiles = data;
       } else if (Array.isArray(data.files)) {
-        setFiles(data.files);
+        fetchedFiles = data.files;
       } else {
+        console.warn("Unexpected /files response:", data);
         setFiles([]);
       }
+      
+      setFiles(fetchedFiles);
+
+      let uniqueTags = new Set();
+      fetchedFiles.forEach(file => {
+        if (file.tags) {
+          file.tags.forEach(tag => uniqueTags.add(tag));
+        }
+      });
+      setAllTags([...uniqueTags].sort());
+
       setShowFiles(true);
     } catch (err) {
       console.error("Error fetching files:", err);
@@ -166,20 +220,74 @@ export default function Dashboard({ token, setToken, setToast }) {
     fetchFiles();
   }, []);
 
+  const getSuggestedTags = async (filename) => {
+    try {
+      const res = await fetch(`${API}/suggest-tags?filename=${encodeURIComponent(filename)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.tags && Array.isArray(data.tags)) {
+        setCurrentTags(data.tags);
+      }
+    } catch (err) {
+      console.error("Error fetching tag suggestions:", err);
+    }
+  };
+
+  const getSuggestedName = async (filename) => {
+    try {
+      const res = await fetch(`${API}/suggest-name?filename=${encodeURIComponent(filename)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.suggested_name) {
+        setUploadFilename(data.suggested_name);
+      } else {
+        setUploadFilename(filename);
+      }
+    } catch (err) {
+      console.error("Error fetching name suggestion:", err);
+      setUploadFilename(filename);
+    }
+  };
+
+  const fetchSuggestions = async (filename) => {
+    setIsLoadingSuggestions(true);
+    await Promise.all([
+      getSuggestedName(filename),
+      getSuggestedTags(filename)
+    ]);
+    setIsLoadingSuggestions(false);
+  };
+
   const upload = async () => {
     if (!file) {
       setToast("Select a file first!", "error");
       return;
     }
+    const cleanFilename = uploadFilename.trim();
+    if (!cleanFilename) {
+      setToast("Please enter a filename.", "error");
+      return;
+    }
+
     try {
-      const res = await fetch(`${API}/upload?filename=${file.name}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const tagsQueryParam = encodeURIComponent(JSON.stringify(currentTags));
+
+      const res = await fetch(
+        `${API}/upload?filename=${encodeURIComponent(cleanFilename)}&tags=${tagsQueryParam}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
       const data = await res.json();
       await fetch(data.uploadUrl, { method: "PUT", body: file });
       setToast("File uploaded successfully!", "success");
       setFile(null);
+      setUploadFilename("");
+      setCurrentTags([]);
       document.querySelector('input[type="file"]').value = "";
       fetchFiles();
     } catch (err) {
@@ -259,25 +367,115 @@ export default function Dashboard({ token, setToken, setToast }) {
     }
   };
 
-  // ✅ NEW SHARE HANDLER
   const handleShare = async (fileId) => {
     const recipient = prompt("Enter recipient email:");
-    console.log("REAL SHARE URL:", `${API}/share?fileId=${fileId}&recipient=${recipient}`);
     if (!recipient) return;
+    
     try {
-      const res = await fetch(`${API}/share?fileId=${fileId}&recipient=${recipient}`, {
+      const res = await fetch(`${API}/share?fileId=${fileId}&recipient=${encodeURIComponent(recipient)}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
       });
 
-
-
       const data = await res.json();
-      if (data.message) setToast(data.message, "success");
-      else setToast("Failed to share file.", "error");
+      if (data.message) {
+        setToast(data.message, "success");
+      } else {
+        setToast("Failed to share file.", "error");
+      }
     } catch (err) {
       console.error("Error sharing file:", err);
       setToast("Failed to share file.", "error");
+    }
+  };
+
+  const openTagEditor = (file) => {
+    setEditingFile(file);
+    setModalTags(file.tags || []);
+  };
+
+  const closeTagEditor = () => {
+    setEditingFile(null);
+    setModalTags([]);
+  };
+
+  const handleModalTagKeydown = (e) => {
+    if (e.key === "Enter" && e.target.value.trim()) {
+      e.preventDefault();
+      const newTag = e.target.value.trim().toLowerCase();
+      if (!modalTags.includes(newTag)) {
+        setModalTags([...modalTags, newTag]);
+      }
+      e.target.value = "";
+    }
+  };
+
+  const saveTags = async () => {
+    if (!editingFile) return;
+    try {
+      const res = await fetch(`${API}/files/${editingFile.fileId}/tags`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ tags: modalTags }),
+      });
+      if (!res.ok) throw new Error("Failed to save tags");
+      
+      setToast("Tags updated!", "success");
+      closeTagEditor();
+      fetchFiles();
+    } catch (err) {
+      console.error("Error saving tags:", err);
+      setToast("Failed to save tags.", "error");
+    }
+  };
+
+  const openRenameModal = (file) => {
+    setRenamingFile(file);
+    setNewFilename(file.filename);
+  };
+
+  const closeRenameModal = () => {
+    setRenamingFile(null);
+    setNewFilename("");
+  };
+
+  const handleRename = async () => {
+    if (!renamingFile) return;
+
+    const trimmedName = newFilename.trim();
+    if (!trimmedName) {
+      setToast("Filename cannot be empty.", "error");
+      return;
+    }
+
+    if (trimmedName === renamingFile.filename) {
+      closeRenameModal();
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API}/files/${renamingFile.fileId}/rename`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ new_filename: trimmedName }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || "Failed to rename file");
+      }
+      
+      setToast("File renamed successfully!", "success");
+      closeRenameModal();
+      fetchFiles();
+    } catch (err) {
+      console.error("Error renaming file:", err);
+      setToast(`Rename failed: ${err.message}`, "error");
     }
   };
 
@@ -286,10 +484,11 @@ export default function Dashboard({ token, setToken, setToast }) {
     setToken(null);
   };
 
-  const user = jwtDecode(token);
-  const filteredFiles = files.filter((file) =>
-    file.filename.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredFiles = files.filter((file) => {
+    const matchesSearch = file.filename.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTag = !selectedTagFilter || (file.tags && file.tags.includes(selectedTagFilter));
+    return matchesSearch && matchesTag;
+  });
 
   return (
     <div className="dashboard-container">
@@ -306,8 +505,91 @@ export default function Dashboard({ token, setToken, setToast }) {
       <hr />
 
       <div className="upload-section">
-        <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-        <button onClick={upload} disabled={!file}>Upload</button>
+        <input
+          type="file"
+          onChange={(e) => {
+            const selectedFile = e.target.files[0];
+            setFile(selectedFile);
+            if (selectedFile) {
+              setUploadFilename("Generating name...");
+              setCurrentTags([]);
+              fetchSuggestions(selectedFile.name);
+            } else {
+              setUploadFilename("");
+              setCurrentTags([]);
+              setIsLoadingSuggestions(false);
+            }
+          }}
+        />
+
+        {file && (
+          <div className="tag-editor-container" style={{ margin: "1rem 0" }}>
+            <strong>Filename:</strong>
+            <input
+              type="text"
+              className="tag-input"
+              value={uploadFilename}
+              onChange={(e) => setUploadFilename(e.target.value)}
+              placeholder="Enter a filename"
+              style={{ marginTop: "8px" }}
+              disabled={isLoadingSuggestions}
+            />
+          </div>
+        )}
+
+        {file && (
+          <div className="tag-editor-container">
+            <strong>Tags:</strong>
+            {isLoadingSuggestions ? (
+              <div className="file-preview-loader" style={{margin: "10px 0"}}></div>
+            ) : (
+              <>
+                <div className="tags-list">
+                  {currentTags.map((tag) => {
+                    const colors = getTagColor(tag);
+                    return (
+                      <span
+                        key={tag}
+                        className="tag-item"
+                        style={{ backgroundColor: colors.bg, color: colors.text }}
+                      >
+                        {tag}
+                        <button
+                          className="tag-remove-btn"
+                          style={{ color: colors.text }}
+                          onClick={() =>
+                            setCurrentTags(currentTags.filter((t) => t !== tag))
+                          }
+                        >
+                          &times;
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+                <input
+                  type="text"
+                  className="tag-input"
+                  placeholder="Add a tag and press Enter"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && e.target.value.trim()) {
+                      e.preventDefault();
+                      const newTag = e.target.value.trim().toLowerCase();
+                      if (!currentTags.includes(newTag)) {
+                        setCurrentTags([...currentTags, newTag]);
+                      }
+                      e.target.value = "";
+                    }
+                  }}
+                />
+              </>
+            )}
+          </div>
+        )}
+
+        <button onClick={upload} disabled={!file || isLoadingSuggestions}>
+          {isLoadingSuggestions ? "..." : "Upload"}
+        </button>
       </div>
 
       <hr />
@@ -320,18 +602,43 @@ export default function Dashboard({ token, setToken, setToast }) {
 
       {showFiles && (
         <div className="files-section">
-          <div className="search-bar-container">
-            {!searchTerm && <FaSearch className="search-icon" />}
-            <input
-              type="text"
-              placeholder="Search files..."
-              className="search-input"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
           <div className="files-toolbar">
+            <div className="search-bar-container">
+              {!searchTerm && <FaSearch className="search-icon" />}
+              <input
+                type="text"
+                placeholder="Search files..."
+                className="search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <div className="tag-filter-container">
+              <FaTags className="tag-filter-icon" />
+              <select
+                value={selectedTagFilter || ""}
+                onChange={(e) => setSelectedTagFilter(e.target.value || null)}
+                className="tag-filter-select"
+              >
+                <option value="">Filter by tag...</option>
+                {allTags.map((tag) => (
+                  <option key={tag} value={tag}>
+                    {tag}
+                  </option>
+                ))}
+              </select>
+              {selectedTagFilter && (
+                <button
+                  onClick={() => setSelectedTagFilter(null)}
+                  className="clear-filter-btn"
+                  title="Clear filter"
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+
             <button
               onClick={deleteSelected}
               disabled={selectedFiles.length === 0}
@@ -345,11 +652,12 @@ export default function Dashboard({ token, setToken, setToast }) {
             </button>
           </div>
 
-          {/* --- GRID LAYOUT --- */}
           <div className="file-grid-container">
             {filteredFiles.length === 0 ? (
               <div className="no-files-message">
-                {files.length > 0 ? "No files match search" : "No files found"}
+                {files.length > 0
+                  ? "No files match search or filter"
+                  : "No files found"}
               </div>
             ) : (
               filteredFiles.map((f) => {
@@ -360,6 +668,11 @@ export default function Dashboard({ token, setToken, setToast }) {
                   <div
                     key={f.fileId}
                     className={`file-card ${isSelected ? "selected" : ""}`}
+                    onClick={(e) => {
+                      if (!e.target.closest("button, .file-card-preview")) {
+                        toggleFileSelection(f);
+                      }
+                    }}
                   >
                     <input
                       type="checkbox"
@@ -369,7 +682,11 @@ export default function Dashboard({ token, setToken, setToast }) {
                       aria-label={`Select ${f.filename}`}
                     />
 
-                    <div className="file-card-preview" title={`Preview ${f.filename}`}>
+                    <div
+                      className="file-card-preview"
+                      title={`Download ${f.filename}`}
+                      onClick={() => handleDownload(f.fileId)}
+                    >
                       <FilePreview file={f} token={token} />
                     </div>
 
@@ -377,9 +694,62 @@ export default function Dashboard({ token, setToken, setToast }) {
                       <span className="file-card-name" title={f.filename}>
                         {f.filename}
                       </span>
+                      <div className="file-card-tags">
+                        {f.tags &&
+                          f.tags.slice(0, 2).map((tag) => {
+                            const colors = getTagColor(tag);
+                            return (
+                              <span
+                                key={tag}
+                                className="tag-item-small"
+                                style={{
+                                  backgroundColor: colors.bg,
+                                  color: colors.text,
+                                }}
+                              >
+                                {tag}
+                              </span>
+                            );
+                          })}
+                        {f.tags && f.tags.length > 2 && (
+                          <span
+                            className="tag-item-small tag-item-small-more"
+                            title={f.tags.slice(2).join(", ")}
+                          >
+                            +{f.tags.length - 2}
+                          </span>
+                        )}
+                      </div>
                       <div className="file-card-actions">
                         <button
-                          onClick={() => copyLink(f.fileId)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openRenameModal(f);
+                          }}
+                          className="action-button rename-button"
+                          aria-label="Rename file"
+                          title="Rename file"
+                        >
+                          <FaEdit />
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openTagEditor(f);
+                          }}
+                          className="action-button edit-tags-button"
+                          aria-label="Edit tags"
+                          title="Edit tags"
+                        >
+                          <FaTags />
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyLink(f.fileId);
+                          }}
                           className={`action-button copy-button ${
                             copiedFileId === f.fileId ? "copied" : ""
                           }`}
@@ -390,7 +760,10 @@ export default function Dashboard({ token, setToken, setToast }) {
                         </button>
 
                         <button
-                          onClick={() => handleDownload(f.fileId)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownload(f.fileId);
+                          }}
                           className="action-button download-button"
                           aria-label="Download file"
                           title="Download file"
@@ -398,14 +771,16 @@ export default function Dashboard({ token, setToken, setToast }) {
                           <FaDownload />
                         </button>
 
-                        {/* ✅ NEW SHARE BUTTON */}
                         <button
-                          onClick={() => handleShare(f.fileId)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShare(f.fileId);
+                          }}
                           className="action-button share-button"
                           aria-label="Share file"
                           title="Share file"
                         >
-                          <FaShareAlt /> Share
+                          <FaShareAlt />
                         </button>
                       </div>
                     </div>
@@ -413,6 +788,83 @@ export default function Dashboard({ token, setToken, setToast }) {
                 );
               })
             )}
+          </div>
+        </div>
+      )}
+
+      {editingFile && (
+        <div className="modal-backdrop" onClick={closeTagEditor}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Edit Tags</h2>
+            <p className="modal-filename">{editingFile.filename}</p>
+            <div className="tag-editor-container">
+              <div className="tags-list">
+                {modalTags.map((tag) => {
+                  const colors = getTagColor(tag);
+                  return (
+                    <span
+                      key={tag}
+                      className="tag-item"
+                      style={{ backgroundColor: colors.bg, color: colors.text }}
+                    >
+                      {tag}
+                      <button
+                        className="tag-remove-btn"
+                        style={{ color: colors.text }}
+                        onClick={() =>
+                          setModalTags(modalTags.filter((t) => t !== tag))
+                        }
+                      >
+                        &times;
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+              <input
+                type="text"
+                className="tag-input"
+                placeholder="Add a tag and press Enter"
+                onKeyDown={handleModalTagKeydown}
+              />
+            </div>
+            <div className="modal-actions">
+              <button
+                onClick={closeTagEditor}
+                className="button-secondary"
+              >
+                Cancel
+              </button>
+              <button onClick={saveTags}>Save Tags</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {renamingFile && (
+        <div className="modal-backdrop" onClick={closeRenameModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Rename File</h2>
+            <p className="modal-filename">Current: {renamingFile.filename}</p>
+            <div className="tag-editor-container" style={{border: "none", padding: 0}}>
+              <input
+                type="text"
+                className="tag-input"
+                value={newFilename}
+                onChange={(e) => setNewFilename(e.target.value)}
+                placeholder="Enter new filename"
+                autoFocus
+              />
+            </div>
+            <div className="modal-actions">
+              <button
+                onClick={closeRenameModal}
+                className="button-secondary"
+              >
+                Cancel
+              </button>
+              <button onClick={handleRename}>Save Name</button>
+            </div>
           </div>
         </div>
       )}
