@@ -21,9 +21,55 @@ import {
   FaTrash,
   FaCheck,
   FaSearch,
+  // --- ADDED FOR TAGS ---
+  FaTags,
 } from "react-icons/fa";
 
 const API = import.meta.env.VITE_API_BASE;
+
+// --- NEW: Color list for tags ---
+// List of standard, non-monochromatic colors (bg = background, text = text color)
+const PREDEFINED_COLORS = [
+  { bg: "#E57373", text: "#000000" }, // Red
+  { bg: "#F06292", text: "#000000" }, // Pink
+  { bg: "#BA68C8", text: "#FFFFFF" }, // Purple
+  { bg: "#9575CD", text: "#FFFFFF" }, // Deep Purple
+  { bg: "#7986CB", text: "#FFFFFF" }, // Indigo
+  { bg: "#64B5F6", text: "#000000" }, // Blue
+  { bg: "#4FC3F7", text: "#000000" }, // Light Blue
+  { bg: "#4DD0E1", text: "#000000" }, // Cyan
+  { bg: "#4DB6AC", text: "#000000" }, // Teal
+  { bg: "#81C784", text: "#000000" }, // Green
+  { bg: "#AED581", text: "#000000" }, // Light Green
+  { bg: "#DCE775", text: "#000000" }, // Lime
+  { bg: "#FFF176", text: "#000000" }, // Yellow
+  { bg: "#FFD54F", text: "#000000" }, // Amber
+  { bg: "#FFB74D", text: "#000000" }, // Orange
+  { bg: "#FF8A65", text: "#000000" }, // Deep Orange
+  { bg: "#A1887F", text: "#FFFFFF" }, // Brown
+  { bg: "#90A4AE", text: "#000000" }, // Blue Grey
+];
+
+// --- NEW: Helper function to get a consistent color based on tag name ---
+/**
+ * Generates a consistent color for a tag.
+ * @param {string} tag
+ * @returns {{bg: string, text: string}}
+ */
+const getTagColor = (tag) => {
+  // Create a simple hash from the tag string
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  hash = Math.abs(hash); // Ensure positive number
+  
+  // Pick a color from the predefined list
+  const index = hash % PREDEFINED_COLORS.length;
+  return PREDEFINED_COLORS[index];
+};
+// --- END NEW ---
+
 
 // --- REPLACED getFileIcon FUNCTION ---
 // This new function returns a specific, colored icon based on file extension
@@ -162,21 +208,42 @@ export default function Dashboard({ token, setToken, setToast }) {
   const [copiedFileId, setCopiedFileId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // --- NEW STATE FOR TAGS ---
+  const [currentTags, setCurrentTags] = useState([]);
+  const [editingFile, setEditingFile] = useState(null); // For tag edit modal
+  const [modalTags, setModalTags] = useState([]);
+  const [allTags, setAllTags] = useState([]);
+  const [selectedTagFilter, setSelectedTagFilter] = useState(null);
+  // --- END NEW STATE ---
+
   const fetchFiles = async () => {
     try {
       const res = await fetch(`${API}/files`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
+      let fetchedFiles = [];
 
       if (Array.isArray(data)) {
-        setFiles(data);
-      } else if (Array.isArray(data.files)) {
-        setFiles(data.files);
+        fetchedFiles = data;
+      } else if (Array.isArray(data.files)) { // Keep old logic just in case
+        fetchedFiles = data.files;
       } else {
-        setFiles([]);
         console.warn("Unexpected /files response:", data);
       }
+      
+      setFiles(fetchedFiles);
+
+      // --- NEW: Compile unique tags ---
+      let uniqueTags = new Set();
+      fetchedFiles.forEach(file => {
+        if (file.tags) {
+          file.tags.forEach(tag => uniqueTags.add(tag));
+        }
+      });
+      setAllTags([...uniqueTags].sort());
+      // --- END NEW ---
+
       setShowFiles(true);
     } catch (err) {
       console.error("Error fetching files:", err);
@@ -188,20 +255,46 @@ export default function Dashboard({ token, setToken, setToast }) {
     fetchFiles();
   }, []);
 
+  // --- NEW: Function to get AI tag suggestions ---
+  const getSuggestedTags = async (filename) => {
+    try {
+      const res = await fetch(`${API}/suggest-tags?filename=${filename}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.tags && Array.isArray(data.tags)) {
+        setCurrentTags(data.tags); // Auto-apply suggestions
+      }
+    } catch (err) {
+      console.error("Error fetching tag suggestions:", err);
+      // Fail silently, don't toast
+    }
+  };
+  // --- END NEW FUNCTION ---
+
   const upload = async () => {
     if (!file) {
       setToast("Select a file first!", "error");
       return;
     }
     try {
-      const res = await fetch(`${API}/upload?filename=${file.name}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // --- NEW: Encode tags for query ---
+      const tagsQueryParam = encodeURIComponent(JSON.stringify(currentTags));
+
+      const res = await fetch(
+        `${API}/upload?filename=${file.name}&tags=${tagsQueryParam}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      // --- END NEW ---
+
       const data = await res.json();
       await fetch(data.uploadUrl, { method: "PUT", body: file });
       setToast("File uploaded successfully!", "success");
       setFile(null);
+      setCurrentTags([]); // Clear tags after upload
       document.querySelector('input[type="file"]').value = "";
       fetchFiles();
     } catch (err) {
@@ -295,11 +388,61 @@ export default function Dashboard({ token, setToken, setToast }) {
     }
   };
 
+  // --- NEW: Tag Modal Functions ---
+  const openTagEditor = (file) => {
+    setEditingFile(file);
+    setModalTags(file.tags || []);
+  };
+
+  const closeTagEditor = () => {
+    setEditingFile(null);
+    setModalTags([]);
+  };
+
+  const handleModalTagKeydown = (e) => {
+     if (e.key === "Enter" && e.target.value.trim()) {
+      e.preventDefault();
+      const newTag = e.target.value.trim().toLowerCase();
+      if (!modalTags.includes(newTag)) {
+        setModalTags([...modalTags, newTag]);
+      }
+      e.target.value = "";
+    }
+  }
+
+  const saveTags = async () => {
+    if (!editingFile) return;
+    try {
+      const res = await fetch(`${API}/files/${editingFile.fileId}/tags`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ tags: modalTags }),
+      });
+      if (!res.ok) throw new Error("Failed to save tags");
+      
+      setToast("Tags updated!", "success");
+      closeTagEditor();
+      fetchFiles(); // Refresh file list to show new tags
+    } catch (err) {
+      console.error("Error saving tags:", err);
+      setToast("Failed to save tags.", "error");
+    }
+  };
+  // --- END NEW FUNCTIONS ---
+
+
   const user = jwtDecode(token);
 
-  const filteredFiles = files.filter((file) =>
-    file.filename.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // --- MODIFIED: Filtered files logic ---
+  const filteredFiles = files.filter((file) => {
+    const matchesSearch = file.filename.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTag = !selectedTagFilter || (file.tags && file.tags.includes(selectedTagFilter));
+    return matchesSearch && matchesTag;
+  });
+  // --- END MODIFIED ---
 
   return (
     <div className="dashboard-container">
@@ -316,8 +459,72 @@ export default function Dashboard({ token, setToken, setToast }) {
       <hr />
 
       <div className="upload-section">
-        <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-        <button onClick={upload} disabled={!file}>Upload</button>
+        {/* --- MODIFIED: File input onChange --- */}
+        <input
+          type="file"
+          onChange={(e) => {
+            const selectedFile = e.target.files[0];
+            setFile(selectedFile);
+            if (selectedFile) {
+              getSuggestedTags(selectedFile.name);
+            } else {
+              setCurrentTags([]);
+            }
+          }}
+        />
+        {/* --- END MODIFIED --- */}
+
+        {/* --- NEW: Pre-upload tag editor --- */}
+        {file && (
+          <div className="tag-editor-container">
+            <strong>Tags:</strong>
+            <div className="tags-list">
+              {/* --- MODIFIED: Use getTagColor --- */}
+              {currentTags.map((tag) => {
+                const colors = getTagColor(tag);
+                return (
+                  <span
+                    key={tag}
+                    className="tag-item"
+                    style={{ backgroundColor: colors.bg, color: colors.text }}
+                  >
+                    {tag}
+                    <button
+                      className="tag-remove-btn"
+                      style={{ color: colors.text }}
+                      onClick={() =>
+                        setCurrentTags(currentTags.filter((t) => t !== tag))
+                      }
+                    >
+                      &times;
+                    </button>
+                  </span>
+                );
+              })}
+              {/* --- END MODIFIED --- */}
+            </div>
+            <input
+              type="text"
+              className="tag-input"
+              placeholder="Add a tag and press Enter"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && e.target.value.trim()) {
+                  e.preventDefault();
+                  const newTag = e.target.value.trim().toLowerCase();
+                  if (!currentTags.includes(newTag)) {
+                    setCurrentTags([...currentTags, newTag]);
+                  }
+                  e.target.value = "";
+                }
+              }}
+            />
+          </div>
+        )}
+        {/* --- END NEW --- */}
+
+        <button onClick={upload} disabled={!file}>
+          Upload
+        </button>
       </div>
 
       <hr />
@@ -341,6 +548,34 @@ export default function Dashboard({ token, setToken, setToast }) {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+
+            {/* --- NEW: Tag Filter --- */}
+            <div className="tag-filter-container">
+              <FaTags className="tag-filter-icon" />
+              <select
+                value={selectedTagFilter || ""}
+                onChange={(e) => setSelectedTagFilter(e.target.value || null)}
+                className="tag-filter-select"
+              >
+                <option value="">Filter by tag...</option>
+                {allTags.map((tag) => (
+                  <option key={tag} value={tag}>
+                    {tag}
+                  </option>
+                ))}
+              </select>
+              {selectedTagFilter && (
+                <button
+                  onClick={() => setSelectedTagFilter(null)}
+                  className="clear-filter-btn"
+                  title="Clear filter"
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+            {/* --- END NEW --- */}
+
             <button
               onClick={deleteSelected}
               disabled={selectedFiles.length === 0}
@@ -358,7 +593,9 @@ export default function Dashboard({ token, setToken, setToast }) {
           <div className="file-grid-container">
             {filteredFiles.length === 0 ? (
               <div className="no-files-message">
-                {files.length > 0 ? "No files match search" : "No files found"}
+                {files.length > 0
+                  ? "No files match search or filter"
+                  : "No files found"}
               </div>
             ) : (
               filteredFiles.map((f) => {
@@ -371,8 +608,8 @@ export default function Dashboard({ token, setToken, setToast }) {
                     className={`file-card ${isSelected ? "selected" : ""}`}
                     // Toggle selection when clicking the card, but not on buttons
                     onClick={(e) => {
-                      if (!e.target.closest('button')) {
-                        toggleFileSelection(f)
+                      if (!e.target.closest("button, .file-card-preview")) {
+                        toggleFileSelection(f);
                       }
                     }}
                   >
@@ -383,8 +620,12 @@ export default function Dashboard({ token, setToken, setToast }) {
                       className="file-card-checkbox"
                       aria-label={`Select ${f.filename}`}
                     />
-                    
-                    <div className="file-card-preview" title={`Download ${f.filename}`} onClick={() => handleDownload(f.fileId)}>
+
+                    <div
+                      className="file-card-preview"
+                      title={`Download ${f.filename}`}
+                      onClick={() => handleDownload(f.fileId)}
+                    >
                       <FilePreview file={f} token={token} />
                     </div>
 
@@ -392,24 +633,69 @@ export default function Dashboard({ token, setToken, setToast }) {
                       <span className="file-card-name" title={f.filename}>
                         {f.filename}
                       </span>
+                      {/* --- NEW: Tag Display on Card --- */}
+                      <div className="file-card-tags">
+                        {/* --- MODIFIED: Use getTagColor --- */}
+                        {f.tags &&
+                          f.tags.slice(0, 2).map((tag) => {
+                            const colors = getTagColor(tag);
+                            return (
+                              <span
+                                key={tag}
+                                className="tag-item-small"
+                                style={{
+                                  backgroundColor: colors.bg,
+                                  color: colors.text,
+                                }}
+                              >
+                                {tag}
+                              </span>
+                            );
+                          })}
+                        {/* --- END MODIFIED --- */}
+                        {f.tags && f.tags.length > 2 && (
+                          <span
+                            className="tag-item-small tag-item-small-more"
+                            title={f.tags.slice(2).join(", ")}
+                          >
+                            +{f.tags.length - 2}
+                          </span>
+                        )}
+                      </div>
+                      {/* --- END NEW --- */}
                       <div className="file-card-actions">
+                        {/* --- NEW: Edit Tags Button --- */}
                         <button
-                          onClick={() => copyLink(f.fileId)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openTagEditor(f);
+                          }}
+                          className="action-button edit-tags-button"
+                          aria-label="Edit tags"
+                          title="Edit tags"
+                        >
+                          <FaTags />
+                        </button>
+                        {/* --- END NEW --- */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyLink(f.fileId);
+                          }}
                           className={`action-button copy-button ${
                             copiedFileId === f.fileId ? "copied" : ""
                           }`}
                           aria-label="Copy download link"
                           title="Copy download link"
                         >
-                          {copiedFileId === f.fileId ? (
-                            <FaCheck />
-                          ) : (
-                            <FaLink />
-                          )}
+                          {copiedFileId === f.fileId ? <FaCheck /> : <FaLink />}
                         </button>
-                        
+
                         <button
-                          onClick={() => handleDownload(f.fileId)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownload(f.fileId);
+                          }}
                           className="action-button download-button"
                           aria-label="Download file"
                           title="Download file"
@@ -424,9 +710,61 @@ export default function Dashboard({ token, setToken, setToast }) {
             )}
           </div>
           {/* --- END GRID LAYOUT --- */}
-          
         </div>
       )}
+
+      {/* --- NEW: Tag Editor Modal --- */}
+      {editingFile && (
+        <div className="modal-backdrop" onClick={closeTagEditor}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Edit Tags</h2>
+            <p className="modal-filename">{editingFile.filename}</p>
+            <div className="tag-editor-container">
+              <div className="tags-list">
+                {/* --- MODIFIED: Use getTagColor --- */}
+                {modalTags.map((tag) => {
+                  const colors = getTagColor(tag);
+                  return (
+                    <span
+                      key={tag}
+                      className="tag-item"
+                      style={{ backgroundColor: colors.bg, color: colors.text }}
+                    >
+                      {tag}
+                      <button
+                        className="tag-remove-btn"
+                        style={{ color: colors.text }}
+                        onClick={() =>
+                          setModalTags(modalTags.filter((t) => t !== tag))
+                        }
+                      >
+                        &times;
+                      </button>
+                    </span>
+                  );
+                })}
+                {/* --- END MODIFIED --- */}
+              </div>
+              <input
+                type="text"
+                className="tag-input"
+                placeholder="Add a tag and press Enter"
+                onKeyDown={handleModalTagKeydown}
+              />
+            </div>
+            <div className="modal-actions">
+              <button
+                onClick={closeTagEditor}
+                className="button-secondary"
+              >
+                Cancel
+              </button>
+              <button onClick={saveTags}>Save Tags</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* --- END NEW MODAL --- */}
     </div>
   );
 }

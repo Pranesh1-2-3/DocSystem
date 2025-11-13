@@ -137,6 +137,8 @@
   overflow: hidden;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
 }
 
 .file-card:hover {
@@ -194,10 +196,11 @@
 
 .file-card-info {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column; /* Stack name, tags, actions */
+  align-items: flex-start; /* Align items left */
   padding: 12px;
-  gap: 10px;
+  gap: 8px; /* Space between name, tags, actions */
+  flex-grow: 1; /* Allow info to grow */
 }
 
 .file-card-name {
@@ -208,12 +211,17 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  width: 100%; /* Ensure it truncates */
+  text-align: left;
 }
 
 .file-card-actions {
   display: flex;
   align-items: center;
   gap: 8px; /* Spacing between icon buttons */
+  margin-top: auto; /* Push actions to the bottom */
+  width: 100%;
+  justify-content: flex-end; /* Align buttons to the right */
 }
 
 .action-button {
@@ -325,4 +333,193 @@
   100% {
     transform: rotate(360deg);
   }
+}
+
+
+/* --- NEW STYLES FOR TAGS --- */
+
+.tag-editor-container {
+  text-align: left;
+  margin: 1rem 0;
+  border: 1px solid #e5e7eb;
+  padding: 1rem;
+  border-radius: var(--border-radius);
+  background: #fff;
+}
+
+.tag-editor-container strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tag-item {
+  display: flex;
+  align-items: center;
+  /* --- MODIFIED: Removed hardcoded background/color --- */
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.tag-remove-btn {
+  background: none;
+  border: none;
+  /* --- MODIFIED: Color is now inherited or set by inline style --- */
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0;
+  margin: 0 0 0 4px;
+  line-height: 1;
+  opacity: 0.7;
+}
+.tag-remove-btn:hover {
+  opacity: 1;
+  transform: none;
+  background: none;
+}
+
+.tag-input {
+  width: 100%;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Tags on File Card */
+.file-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  width: 100%; /* Take full width */
+}
+
+.tag-item-small {
+  /* --- MODIFIED: Removed hardcoded background/color --- */
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.tag-item-small-more {
+  background: #e5e7eb;
+  color: #1f2937;
+  font-weight: 700;
+  cursor: help;
+}
+
+.edit-tags-button:hover {
+  color: #f59e0b; /* Amber/Yellow color */
+}
+
+/* Tag Filter in Toolbar */
+.tag-filter-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.tag-filter-icon {
+  position: absolute;
+  left: 10px;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+.tag-filter-select {
+  padding: 8px 12px 8px 35px;
+  border: 1px solid #d1d5db;
+  border-radius: var(--border-radius);
+  font-size: 0.9rem;
+  background: #fff;
+  color: var(--font-color);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 8px 10px;
+  min-width: 150px;
+}
+.clear-filter-btn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 1.25rem;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0 5px;
+  margin: 0;
+}
+.clear-filter-btn:hover {
+  color: #dc3545;
+  background: none;
+  transform: none;
+}
+
+
+/* --- NEW MODAL STYLES --- */
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--card-color);
+  padding: 2rem;
+  border-radius: var(--border-radius);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 500px;
+  z-index: 1001;
+  text-align: left;
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: var(--font-color);
+}
+
+.modal-filename {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+  word-break: break-all;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 1.5rem;
+}
+
+.button-secondary {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.button-secondary:hover {
+  background: #d1d5db;
+  color: #111827;
+  transform: translateY(-2px);
 }

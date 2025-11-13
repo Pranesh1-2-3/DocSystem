@@ -23,6 +23,12 @@ Resources:
       Policies:
         - AmazonS3FullAccess
         - AmazonDynamoDBFullAccess
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              # This ARN matches the model and region from your app.py
+              Resource: "arn:aws:bedrock:ap-south-1::model/anthropic.claude-3-haiku-20240307-v1:0"
       Events:
         RootEvent:
           Type: Api
