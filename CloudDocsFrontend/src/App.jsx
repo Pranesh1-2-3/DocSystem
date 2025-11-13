@@ -5,6 +5,7 @@ import Dashboard from "./Dashboard";
 import Toast from "./Toast";
 import "./Auth.css"; // Import the new auth styles
 import AuthVector from "./assets/auth-vector.svg"; // Import the new SVG
+import BedrockTest from "./BedrockTest";
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
@@ -75,7 +76,8 @@ export default function App() {
           onClose={() => setToast(null)}
         />
       )}
-      <Dashboard token={token} setToken={setToken} setToast={showToast} />
+      {/* <Dashboard token={token} setToken={setToken} setToast={showToast} /> */}
+      <BedrockTest/>
     </>
   );
 }

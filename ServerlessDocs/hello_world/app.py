@@ -32,6 +32,7 @@ app.add_middleware(
 
 s3 = boto3.client("s3")
 ddb = boto3.resource("dynamodb")
+bedrock_runtime = boto3.client("bedrock-runtime", region_name="ap-south-1")
 table = ddb.Table("CloudDocsFiles")
 BUCKET = "clouddocs-uploads-bucket"
 
@@ -78,9 +79,53 @@ def verify_token(token: str):
 def home():
     return {"message": "CloudDocs backend running with Cognito!"}
 
-
+class ClaudeRequest(BaseModel):
+    messages: list
+    model: str = "anthropic.claude-3-haiku-20240307-v1:0"
+    max_tokens: int = 1000
+    temperature: float = 1.0
+    top_p: float = 0.999
 # --- MODIFIED /upload ENDPOINT ---
 # (No change needed here, the frontend will send the user-defined name)
+    
+@app.post("/api/claude")
+def call_claude_bedrock(request: ClaudeRequest, Authorization: str = Header(None)):
+    """
+    Proxy endpoint for Claude via AWS Bedrock
+    """
+    if not Authorization:
+        raise HTTPException(status_code=401, detail="Missing token")
+
+    # Verify user is authenticated
+    token = Authorization.split(" ")[1]
+    claims = verify_token(token)
+    user_id = claims["sub"]
+    
+    try:
+        # Prepare the request body for Bedrock
+        body = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": request.max_tokens,
+            "messages": request.messages,
+            "temperature": request.temperature,
+            "top_p": request.top_p
+        }
+        
+        # Call Bedrock
+        response = bedrock_runtime.invoke_model(
+            modelId=request.model,
+            body=json.dumps(body)
+        )
+        
+        # Parse response
+        response_body = json.loads(response['body'].read())
+        
+        return response_body
+        
+    except Exception as e:
+        print(f"Bedrock error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to call Bedrock: {str(e)}")
+# ===== END BEDROCK ENDPOINT =====
 @app.post("/upload")
 def create_upload(filename: str, tags: str = '[]', Authorization: str = Header(None)):
     if not Authorization:
@@ -229,24 +274,25 @@ def get_download_link(fileId: str, Authorization: str = Header(None)):
 # (No changes needed)
 # --- MODIFIED: get_ai_tags function ---
 def get_ai_tags(filename: str) -> List[str]:
-    
-    # --- NEW: Try calling Bedrock (e.g., Claude Haiku) ---
+    """
+    Use Claude via Bedrock to suggest relevant tags for a file based on its name.
+    Falls back to rule-based logic if Bedrock fails.
+    """
     try:
-        # NOTE: This requires the Lambda's IAM role to have 'bedrock:InvokeModel' permissions
-        # for the 'anthropic.claude-3-haiku-20240307-v1:0' model.
-        # You must add this permission to your Lambda role in template.yaml or the AWS console.
-        
-        prompt = f"""
-Human: You are an intelligent file organization assistant.
+        prompt = f"""You are an intelligent file organization assistant.
 Suggest 2-3 short, relevant, lowercase tags for a file based on its name.
 The file is named: "{filename}"
-Provide only a comma-separated list of tags.
-For example:
-File: "Invoice_2025_Jan.pdf" -> finance, invoice
-File: "Team_Photo_Vinhack.jpg" -> event, media, photo
-File: "ProjectProposal_Ayush2025.docx" -> project, proposal
 
-Assistant:"""
+Provide ONLY a comma-separated list of tags with no extra text or explanation.
+
+Examples:
+- "Invoice_2025_Jan.pdf" -> finance, invoice, document
+- "Team_Photo_Vinhack.jpg" -> event, photo, media
+- "ProjectProposal_Ayush2025.docx" -> project, proposal, document
+- "Budget_Spreadsheet_Q4.xlsx" -> finance, budget, spreadsheet
+- "Meeting_Notes_Nov.txt" -> notes, meeting, document
+
+Now suggest tags for: "{filename}" """
 
         body = json.dumps({
             "anthropic_version": "bedrock-2023-05-31",
@@ -270,16 +316,27 @@ Assistant:"""
         response_body = json.loads(response.get("body").read())
         raw_tags = response_body.get("content", [{}])[0].get("text", "")
         
+        print(f"Claude response for tags: {raw_tags}")
+        
         # Clean up the LLM output
+        # Remove any extra whitespace, quotes, or newlines
+        raw_tags = raw_tags.strip().strip('"').strip("'")
         tags = [tag.strip().lower() for tag in raw_tags.split(",") if tag.strip()]
         
         if tags:
-            return list(set(tags))[:3] # Return unique, lowercase tags, max 3
+            # Return unique tags, max 3
+            unique_tags = []
+            for tag in tags:
+                if tag not in unique_tags:
+                    unique_tags.append(tag)
+                if len(unique_tags) >= 3:
+                    break
+            return unique_tags
             
     except Exception as e:
-        # Fallback to rule-based logic if Bedrock fails (e.g., permissions, timeout)
         print(f"Bedrock call failed: {e}. Falling back to rule-based tags.")
-    # --- END NEW ---
+
+
 
 @app.get("/suggest-tags")
 def suggest_tags(filename: str, Authorization: str = Header(None)):
@@ -296,6 +353,10 @@ def suggest_tags(filename: str, Authorization: str = Header(None)):
 
 # --- !! NEW: HELPER FUNCTION get_ai_name !! ---
 def get_ai_name(original_filename: str) -> str:
+    """
+    Use Claude via Bedrock to suggest a cleaned-up filename.
+    Falls back to the original name if Bedrock fails.
+    """
     try:
         # Get the file extension, if it exists
         parts = original_filename.rsplit('.', 1)
@@ -306,25 +367,25 @@ def get_ai_name(original_filename: str) -> str:
             base_name = original_filename
             extension = ""
 
-        prompt = f"""
-Human: You are an expert file naming assistant. Your job is to clean up and rename a messy file name into a clean, human-readable one.
-- Keep the file extension unchanged.
-- Use underscores (_) instead of spaces or hyphens.
-- Convert to lowercase with underscores (e.g., "my_document").
-- Remove special characters, timestamps, or junk.
-- The new name should be descriptive.
+        prompt = f"""You are an expert file naming assistant. Clean up this messy filename into a readable one.
 
-Here are some examples:
-- Original: "IMG_8821_v2 (copy).jpg" -> "img_8821.jpg"
-- Original: "final_presentation_v3_draft-Ayush.pptx" -> "final_presentation.pptx"
-- Original: "2025-01-20_Invoice-CLIENT.pdf" -> "invoice_client_2025.pdf"
-- Original: "Student Report card 2024.docx" -> "student_report_card_2024.docx"
-- Original: "screenshot 2025-11-12 at 11.30.45 AM.png" -> "screenshot.png"
+Rules:
+- Use underscores (_) instead of spaces
+- Use lowercase
+- Remove special characters, timestamps, version numbers, or junk
+- Keep it descriptive and concise
+- MUST keep the file extension: .{extension}
 
-Now, rename this file (keep the extension '{extension}'):
-Original: "{original_filename}"
+Examples:
+- "IMG_8821_v2 (copy).jpg" -> "img_8821.jpg"
+- "final_presentation_v3_draft-Ayush.pptx" -> "final_presentation.pptx"
+- "2025-01-20_Invoice-CLIENT.pdf" -> "invoice_client.pdf"
+- "Student Report card 2024.docx" -> "student_report_2024.docx"
+- "screenshot 2025-11-12 at 11.30.45 AM.png" -> "screenshot.png"
 
-Assistant:"""
+Original filename: "{original_filename}"
+
+Provide ONLY the cleaned filename with extension, nothing else."""
 
         body = json.dumps({
             "anthropic_version": "bedrock-2023-05-31",
@@ -347,16 +408,25 @@ Assistant:"""
         
         response_body = json.loads(response.get("body").read())
         suggested_name = response_body.get("content", [{}])[0].get("text", "").strip()
+        
+        print(f"Claude response for name: {suggested_name}")
+        
+        # Clean up the response - remove quotes, extra whitespace, newlines
+        suggested_name = suggested_name.strip().strip('"').strip("'").strip()
+        
+        # If response has multiple lines, take the first one
+        if '\n' in suggested_name:
+            suggested_name = suggested_name.split('\n')[0].strip()
 
-        # Final check: ensure the extension is still there if it's supposed to be
-        if extension and not suggested_name.endswith(f".{extension}"):
-            # If the model forgot the extension, add it back.
-            # Clean up the model output first (remove extra quotes, etc.)
-            clean_base = suggested_name.rsplit('.', 1)[0].strip().replace('"', '')
-            return f"{clean_base}.{extension}"
-
-        if suggested_name:
-            return suggested_name.replace('"', '') # Clean up quotes
+        # Validate the suggestion
+        if suggested_name and len(suggested_name) > 0:
+            # Ensure the extension is still there if it's supposed to be
+            if extension and not suggested_name.lower().endswith(f".{extension.lower()}"):
+                # If the model forgot the extension, add it back
+                clean_base = suggested_name.rsplit('.', 1)[0].strip()
+                return f"{clean_base}.{extension}"
+            
+            return suggested_name
             
     except Exception as e:
         print(f"Bedrock name suggestion failed: {e}. Falling back to original name.")
