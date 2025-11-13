@@ -1,3 +1,5 @@
+# pranesh1-2-3/docsystem/DocSystem-ayush/ServerlessDocs/hello_world/app.py
+
 from fastapi import FastAPI, Header, HTTPException
 from mangum import Mangum
 import boto3, uuid, time, json, requests
@@ -44,6 +46,11 @@ class TagsUpdate(BaseModel):
     tags: List[str]
 # --- END NEW MODEL ---
 
+# --- !! NEW MODEL FOR FILENAME UPDATE !! ---
+class FilenameUpdate(BaseModel):
+    new_filename: str
+# --- !! END NEW MODEL !! ---
+
 
 def verify_token(token: str):
     try:
@@ -73,6 +80,7 @@ def home():
 
 
 # --- MODIFIED /upload ENDPOINT ---
+# (No change needed here, the frontend will send the user-defined name)
 @app.post("/upload")
 def create_upload(filename: str, tags: str = '[]', Authorization: str = Header(None)):
     if not Authorization:
@@ -82,8 +90,15 @@ def create_upload(filename: str, tags: str = '[]', Authorization: str = Header(N
     claims = verify_token(token)
     user_id = claims["sub"]
 
+    # --- !! NEW: Sanitize filename !! ---
+    # Ensure filename is not empty and strip whitespace
+    clean_filename = filename.strip()
+    if not clean_filename:
+        raise HTTPException(status_code=400, detail="Filename cannot be empty")
+    # --- !! END NEW !! ---
+
     file_id = str(uuid.uuid4())
-    key = f"{user_id}/{file_id}/{filename}"
+    key = f"{user_id}/{file_id}/{clean_filename}" # Use the clean filename
 
     url = s3.generate_presigned_url(
         "put_object",
@@ -101,7 +116,7 @@ def create_upload(filename: str, tags: str = '[]', Authorization: str = Header(N
     table.put_item(Item={
         "userId": user_id,
         "fileId": file_id,
-        "filename": filename,
+        "filename": clean_filename, # Store the clean filename
         "createdAt": str(int(time.time())),
         "tags": tag_list  # Store the tags
     })
@@ -111,6 +126,7 @@ def create_upload(filename: str, tags: str = '[]', Authorization: str = Header(N
 
 
 # --- MODIFIED /files ENDPOINT ---
+# (No changes needed)
 @app.get("/files")
 def list_files(Authorization: str = Header(None)):
     if not Authorization:
@@ -158,6 +174,7 @@ def list_files(Authorization: str = Header(None)):
 
 @app.delete("/delete")
 def delete_file(fileId: str, Authorization: str = Header(None)):
+    # (No changes needed)
     if not Authorization:
         raise HTTPException(status_code=401, detail="Missing token")
 
@@ -184,6 +201,7 @@ def delete_file(fileId: str, Authorization: str = Header(None)):
 
 @app.get("/download")
 def get_download_link(fileId: str, Authorization: str = Header(None)):
+    # (No changes needed)
     if not Authorization:
         raise HTTPException(status_code=401, detail="Missing token")
 
@@ -208,8 +226,8 @@ def get_download_link(fileId: str, Authorization: str = Header(None)):
 
 
 # --- NEW ENDPOINT: /suggest-tags ---
+# (No changes needed)
 # --- MODIFIED: get_ai_tags function ---
-# This function now attempts to use a real LLM (Bedrock) and falls back to rules
 def get_ai_tags(filename: str) -> List[str]:
     
     # --- NEW: Try calling Bedrock (e.g., Claude Haiku) ---
@@ -263,40 +281,6 @@ Assistant:"""
         print(f"Bedrock call failed: {e}. Falling back to rule-based tags.")
     # --- END NEW ---
 
-    # --- FALLBACK: Rule-based logic from previous version ---
-    filename_lower = filename.lower()
-    tags = set()
-    
-    # By extension
-    if any(ext in filename_lower for ext in [".pdf"]):
-        tags.add("pdf")
-    if any(ext in filename_lower for ext in [".doc", ".docx"]):
-        tags.add("document")
-    if any(ext in filename_lower for ext in [".xls", ".xlsx"]):
-        tags.add("spreadsheet")
-    if any(ext in filename_lower for ext in [".jpg", ".jpeg", ".png", ".svg"]):
-        tags.add("image")
-    if any(ext in filename_lower for ext in [".zip", ".rar", ".7z"]):
-        tags.add("archive")
-    if any(ext in filename_lower for ext in [".py", ".js", ".html", ".css", ".java"]):
-        tags.add("code")
-    
-    # By keyword (from user examples)
-    if "invoice" in filename_lower:
-        tags.add("finance")
-        tags.add("invoice")
-    if "proposal" in filename_lower:
-        tags.add("project")
-        tags.add("proposal")
-    if "team" in filename_lower or "photo" in filename_lower:
-        tags.add("media")
-    if "vinhack" in filename_lower:
-        tags.add("event")
-    if "ayush" in filename_lower:
-        tags.add("personal")
-    
-    return list(tags)[:3] # Limit to 3 tags
-
 @app.get("/suggest-tags")
 def suggest_tags(filename: str, Authorization: str = Header(None)):
     if not Authorization:
@@ -310,9 +294,98 @@ def suggest_tags(filename: str, Authorization: str = Header(None)):
 # --- END NEW ENDPOINT ---
 
 
+# --- !! NEW: HELPER FUNCTION get_ai_name !! ---
+def get_ai_name(original_filename: str) -> str:
+    try:
+        # Get the file extension, if it exists
+        parts = original_filename.rsplit('.', 1)
+        if len(parts) == 2:
+            base_name = parts[0]
+            extension = parts[1]
+        else:
+            base_name = original_filename
+            extension = ""
+
+        prompt = f"""
+Human: You are an expert file naming assistant. Your job is to clean up and rename a messy file name into a clean, human-readable one.
+- Keep the file extension unchanged.
+- Use underscores (_) instead of spaces or hyphens.
+- Convert to lowercase with underscores (e.g., "my_document").
+- Remove special characters, timestamps, or junk.
+- The new name should be descriptive.
+
+Here are some examples:
+- Original: "IMG_8821_v2 (copy).jpg" -> "img_8821.jpg"
+- Original: "final_presentation_v3_draft-Ayush.pptx" -> "final_presentation.pptx"
+- Original: "2025-01-20_Invoice-CLIENT.pdf" -> "invoice_client_2025.pdf"
+- Original: "Student Report card 2024.docx" -> "student_report_card_2024.docx"
+- Original: "screenshot 2025-11-12 at 11.30.45 AM.png" -> "screenshot.png"
+
+Now, rename this file (keep the extension '{extension}'):
+Original: "{original_filename}"
+
+Assistant:"""
+
+        body = json.dumps({
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 100,
+            "temperature": 0.2,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": prompt}]
+                }
+            ]
+        })
+        
+        response = bedrock_runtime.invoke_model(
+            body=body, 
+            modelId="anthropic.claude-3-haiku-20240307-v1:0",
+            contentType="application/json",
+            accept="application/json"
+        )
+        
+        response_body = json.loads(response.get("body").read())
+        suggested_name = response_body.get("content", [{}])[0].get("text", "").strip()
+
+        # Final check: ensure the extension is still there if it's supposed to be
+        if extension and not suggested_name.endswith(f".{extension}"):
+            # If the model forgot the extension, add it back.
+            # Clean up the model output first (remove extra quotes, etc.)
+            clean_base = suggested_name.rsplit('.', 1)[0].strip().replace('"', '')
+            return f"{clean_base}.{extension}"
+
+        if suggested_name:
+            return suggested_name.replace('"', '') # Clean up quotes
+            
+    except Exception as e:
+        print(f"Bedrock name suggestion failed: {e}. Falling back to original name.")
+    
+    # Fallback to the original name if AI fails
+    return original_filename
+# --- !! END HELPER FUNCTION !! ---
+
+
+# --- !! NEW ENDPOINT: /suggest-name !! ---
+@app.get("/suggest-name")
+def suggest_name(filename: str, Authorization: str = Header(None)):
+    if not Authorization:
+        raise HTTPException(status_code=401, detail="Missing token")
+    
+    # Verify token to ensure user is authenticated
+    verify_token(Authorization.split(" ")[1]) 
+    
+    # Get the AI-suggested name
+    suggested_name = get_ai_name(filename)
+    
+    return {"suggested_name": suggested_name}
+# --- !! END NEW ENDPOINT !! ---
+
+
 # --- NEW ENDPOINT: /files/{fileId}/tags ---
 @app.put("/files/{fileId}/tags")
 def update_tags(fileId: str, tags_update: TagsUpdate, Authorization: str = Header(None)):
+    # (No changes needed)
     if not Authorization:
         raise HTTPException(status_code=401, detail="Missing token")
 
@@ -338,3 +411,60 @@ def update_tags(fileId: str, tags_update: TagsUpdate, Authorization: str = Heade
         print(f"Error updating tags: {e}")
         raise HTTPException(status_code=500, detail="Failed to update tags")
 # --- END NEW ENDPOINT ---
+
+
+# --- !! NEW ENDPOINT: /files/{fileId}/rename !! ---
+@app.put("/files/{fileId}/rename")
+def rename_file(fileId: str, update: FilenameUpdate, Authorization: str = Header(None)):
+    if not Authorization:
+        raise HTTPException(status_code=401, detail="Missing token")
+
+    token = Authorization.split(" ")[1]
+    claims = verify_token(token)
+    user_id = claims["sub"]
+
+    # 1. Get current file data from DDB
+    resp = table.get_item(Key={"userId": user_id, "fileId": fileId})
+    item = resp.get("Item")
+    if not item:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    old_filename = item.get("filename", "unknown")
+    new_filename = update.new_filename.strip()
+
+    if not new_filename:
+         raise HTTPException(status_code=400, detail="New filename cannot be empty")
+
+    if old_filename == new_filename:
+        # No change needed
+        return {"message": "Filename is unchanged", "fileId": fileId, "filename": new_filename}
+
+    # 2. Rename in S3 (Copy + Delete)
+    old_key = f"{user_id}/{fileId}/{old_filename}"
+    new_key = f"{user_id}/{fileId}/{new_filename}"
+
+    try:
+        s3.copy_object(
+            Bucket=BUCKET,
+            CopySource={'Bucket': BUCKET, 'Key': old_key},
+            Key=new_key
+        )
+        s3.delete_object(Bucket=BUCKET, Key=old_key)
+    except Exception as e:
+        print(f"Error renaming in S3: {e}")
+        # If S3 fails, we should NOT update DynamoDB.
+        raise HTTPException(status_code=500, detail=f"Failed to rename file in S3: {e}")
+
+    # 3. Update filename in DynamoDB
+    try:
+        table.update_item(
+            Key={"userId": user_id, "fileId": fileId},
+            UpdateExpression="SET filename = :f",
+            ExpressionAttributeValues={":f": new_filename}
+        )
+        return {"message": "File renamed successfully", "fileId": fileId, "filename": new_filename}
+    except Exception as e:
+        print(f"Error updating DynamoDB: {e}")
+        # This is an inconsistent state, but we must report the error.
+        raise HTTPException(status_code=500, detail="S3 rename OK, but failed to update database.")
+# --- !! END NEW ENDPOINT !! ---

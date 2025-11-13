@@ -23,12 +23,14 @@ import {
   FaSearch,
   // --- ADDED FOR TAGS ---
   FaTags,
+  // --- !! NEW ICON FOR RENAME !! ---
+  FaEdit,
 } from "react-icons/fa";
 
 const API = import.meta.env.VITE_API_BASE;
 
 // --- NEW: Color list for tags ---
-// List of standard, non-monochromatic colors (bg = background, text = text color)
+// (This section is unchanged)
 const PREDEFINED_COLORS = [
   { bg: "#E57373", text: "#000000" }, // Red
   { bg: "#F06292", text: "#000000" }, // Pink
@@ -51,11 +53,7 @@ const PREDEFINED_COLORS = [
 ];
 
 // --- NEW: Helper function to get a consistent color based on tag name ---
-/**
- * Generates a consistent color for a tag.
- * @param {string} tag
- * @returns {{bg: string, text: string}}
- */
+// (This section is unchanged)
 const getTagColor = (tag) => {
   // Create a simple hash from the tag string
   let hash = 0;
@@ -72,7 +70,7 @@ const getTagColor = (tag) => {
 
 
 // --- REPLACED getFileIcon FUNCTION ---
-// This new function returns a specific, colored icon based on file extension
+// (This section is unchanged)
 const getFileIcon = (filename) => {
   const extension = filename.split(".").pop().toLowerCase();
   
@@ -147,6 +145,7 @@ const getFileIcon = (filename) => {
 
 // Component to handle image previews (This remains the same)
 function FilePreview({ file, token }) {
+  // (This section is unchanged)
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -208,6 +207,14 @@ export default function Dashboard({ token, setToken, setToast }) {
   const [copiedFileId, setCopiedFileId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // --- !! NEW STATE FOR UPLOAD FILENAME !! ---
+  const [uploadFilename, setUploadFilename] = useState("");
+  // --- !! END NEW STATE !! ---
+
+  // --- !! NEW: State for loading suggestions !! ---
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  // --- !! END NEW !! ---
+
   // --- NEW STATE FOR TAGS ---
   const [currentTags, setCurrentTags] = useState([]);
   const [editingFile, setEditingFile] = useState(null); // For tag edit modal
@@ -216,7 +223,14 @@ export default function Dashboard({ token, setToken, setToast }) {
   const [selectedTagFilter, setSelectedTagFilter] = useState(null);
   // --- END NEW STATE ---
 
+  // --- !! NEW STATE FOR RENAME MODAL !! ---
+  const [renamingFile, setRenamingFile] = useState(null); // { fileId, filename }
+  const [newFilename, setNewFilename] = useState("");
+  // --- !! END NEW STATE !! ---
+
+
   const fetchFiles = async () => {
+    // (This section is unchanged)
     try {
       const res = await fetch(`${API}/files`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -255,10 +269,10 @@ export default function Dashboard({ token, setToken, setToast }) {
     fetchFiles();
   }, []);
 
-  // --- NEW: Function to get AI tag suggestions ---
+  // --- !! MODIFIED: getSuggestedTags now just gets tags !! ---
   const getSuggestedTags = async (filename) => {
     try {
-      const res = await fetch(`${API}/suggest-tags?filename=${filename}`, {
+      const res = await fetch(`${API}/suggest-tags?filename=${encodeURIComponent(filename)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -270,30 +284,69 @@ export default function Dashboard({ token, setToken, setToast }) {
       // Fail silently, don't toast
     }
   };
-  // --- END NEW FUNCTION ---
+  // --- !! END MODIFIED FUNCTION !! ---
 
+  // --- !! NEW: Function to get AI name suggestion !! ---
+  const getSuggestedName = async (filename) => {
+    try {
+      const res = await fetch(`${API}/suggest-name?filename=${encodeURIComponent(filename)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.suggested_name) {
+        setUploadFilename(data.suggested_name); // Auto-apply suggestion
+      } else {
+        setUploadFilename(filename); // Fallback
+      }
+    } catch (err) {
+      console.error("Error fetching name suggestion:", err);
+      setUploadFilename(filename); // Fallback
+    }
+  };
+  // --- !! END NEW FUNCTION !! ---
+
+
+  // --- !! NEW: Function to get ALL suggestions !! ---
+  const fetchSuggestions = async (filename) => {
+    setIsLoadingSuggestions(true);
+    // Kick off both requests in parallel
+    await Promise.all([
+      getSuggestedName(filename),
+      getSuggestedTags(filename)
+    ]);
+    setIsLoadingSuggestions(false);
+  };
+  // --- !! END NEW FUNCTION !! ---
+
+  // --- !! MODIFIED: upload FUNCTION !! ---
   const upload = async () => {
+    // (This function's logic is unchanged, it already reads from uploadFilename)
     if (!file) {
       setToast("Select a file first!", "error");
       return;
     }
+    const cleanFilename = uploadFilename.trim();
+    if (!cleanFilename) {
+      setToast("Please enter a filename.", "error");
+      return;
+    }
+
     try {
-      // --- NEW: Encode tags for query ---
       const tagsQueryParam = encodeURIComponent(JSON.stringify(currentTags));
 
       const res = await fetch(
-        `${API}/upload?filename=${file.name}&tags=${tagsQueryParam}`,
+        `${API}/upload?filename=${encodeURIComponent(cleanFilename)}&tags=${tagsQueryParam}`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      // --- END NEW ---
 
       const data = await res.json();
       await fetch(data.uploadUrl, { method: "PUT", body: file });
       setToast("File uploaded successfully!", "success");
       setFile(null);
+      setUploadFilename(""); // Clear filename input
       setCurrentTags([]); // Clear tags after upload
       document.querySelector('input[type="file"]').value = "";
       fetchFiles();
@@ -302,8 +355,10 @@ export default function Dashboard({ token, setToken, setToast }) {
       setToast("File upload failed.", "error");
     }
   };
+  // --- !! END MODIFIED upload !! ---
 
   const deleteSelected = async () => {
+    // (This section is unchanged)
     if (selectedFiles.length === 0) {
       setToast("No files selected!", "error");
       return;
@@ -334,6 +389,7 @@ export default function Dashboard({ token, setToken, setToast }) {
   };
 
   const toggleFileSelection = (file) => {
+    // (This section is unchanged)
     setSelectedFiles((prev) => {
       if (prev.some((f) => f.fileId === file.fileId)) {
         return prev.filter((f) => f.fileId !== file.fileId);
@@ -344,6 +400,7 @@ export default function Dashboard({ token, setToken, setToast }) {
   };
 
   const copyLink = async (fileId) => {
+    // (This section is unchanged)
     try {
       const res = await fetch(`${API}/download?fileId=${fileId}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -364,11 +421,13 @@ export default function Dashboard({ token, setToken, setToast }) {
   };
 
   const logout = () => {
+    // (This section is unchanged)
     localStorage.removeItem("token");
     setToken(null);
   };
   
   const handleDownload = async (fileId) => {
+    // (This section is unchanged)
     try {
       const res = await fetch(
         `${API}/download?fileId=${fileId}`,
@@ -390,16 +449,19 @@ export default function Dashboard({ token, setToken, setToast }) {
 
   // --- NEW: Tag Modal Functions ---
   const openTagEditor = (file) => {
+    // (This section is unchanged)
     setEditingFile(file);
     setModalTags(file.tags || []);
   };
 
   const closeTagEditor = () => {
+    // (This section is unchanged)
     setEditingFile(null);
     setModalTags([]);
   };
 
   const handleModalTagKeydown = (e) => {
+    // (This section is unchanged)
      if (e.key === "Enter" && e.target.value.trim()) {
       e.preventDefault();
       const newTag = e.target.value.trim().toLowerCase();
@@ -411,6 +473,7 @@ export default function Dashboard({ token, setToken, setToast }) {
   }
 
   const saveTags = async () => {
+    // (This section is unchanged)
     if (!editingFile) return;
     try {
       const res = await fetch(`${API}/files/${editingFile.fileId}/tags`, {
@@ -433,11 +496,61 @@ export default function Dashboard({ token, setToken, setToast }) {
   };
   // --- END NEW FUNCTIONS ---
 
+  // --- !! NEW: Rename Modal Functions !! ---
+  const openRenameModal = (file) => {
+    setRenamingFile(file);
+    setNewFilename(file.filename);
+  };
+
+  const closeRenameModal = () => {
+    setRenamingFile(null);
+    setNewFilename("");
+  };
+
+  const handleRename = async () => {
+    if (!renamingFile) return;
+
+    const trimmedName = newFilename.trim();
+    if (!trimmedName) {
+      setToast("Filename cannot be empty.", "error");
+      return;
+    }
+
+    if (trimmedName === renamingFile.filename) {
+      closeRenameModal();
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API}/files/${renamingFile.fileId}/rename`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ new_filename: trimmedName }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || "Failed to rename file");
+      }
+      
+      setToast("File renamed successfully!", "success");
+      closeRenameModal();
+      fetchFiles(); // Refresh file list to show new name
+    } catch (err) {
+      console.error("Error renaming file:", err);
+      setToast(`Rename failed: ${err.message}`, "error");
+    }
+  };
+  // --- !! END NEW FUNCTIONS !! ---
+
 
   const user = jwtDecode(token);
 
   // --- MODIFIED: Filtered files logic ---
   const filteredFiles = files.filter((file) => {
+    // (This section is unchanged)
     const matchesSearch = file.filename.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTag = !selectedTagFilter || (file.tags && file.tags.includes(selectedTagFilter));
     return matchesSearch && matchesTag;
@@ -459,71 +572,101 @@ export default function Dashboard({ token, setToken, setToast }) {
       <hr />
 
       <div className="upload-section">
-        {/* --- MODIFIED: File input onChange --- */}
+        {/* --- !! MODIFIED: File input onChange !! --- */}
         <input
           type="file"
           onChange={(e) => {
             const selectedFile = e.target.files[0];
             setFile(selectedFile);
             if (selectedFile) {
-              getSuggestedTags(selectedFile.name);
-            } else {
+              // --- !! NEW: Call suggestion fetcher !! ---
+              setUploadFilename("Generating name..."); // Placeholder
               setCurrentTags([]);
+              fetchSuggestions(selectedFile.name);
+            } else {
+              setUploadFilename(""); // Clear filename input
+              setCurrentTags([]);
+              setIsLoadingSuggestions(false);
             }
           }}
         />
-        {/* --- END MODIFIED --- */}
+        {/* --- !! END MODIFIED !! --- */}
 
-        {/* --- NEW: Pre-upload tag editor --- */}
+        {/* --- !! MODIFIED: Pre-upload filename editor !! --- */}
         {file && (
-          <div className="tag-editor-container">
-            <strong>Tags:</strong>
-            <div className="tags-list">
-              {/* --- MODIFIED: Use getTagColor --- */}
-              {currentTags.map((tag) => {
-                const colors = getTagColor(tag);
-                return (
-                  <span
-                    key={tag}
-                    className="tag-item"
-                    style={{ backgroundColor: colors.bg, color: colors.text }}
-                  >
-                    {tag}
-                    <button
-                      className="tag-remove-btn"
-                      style={{ color: colors.text }}
-                      onClick={() =>
-                        setCurrentTags(currentTags.filter((t) => t !== tag))
-                      }
-                    >
-                      &times;
-                    </button>
-                  </span>
-                );
-              })}
-              {/* --- END MODIFIED --- */}
-            </div>
+          <div className="tag-editor-container" style={{ margin: "1rem 0" }}>
+            <strong>Filename:</strong>
             <input
               type="text"
               className="tag-input"
-              placeholder="Add a tag and press Enter"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && e.target.value.trim()) {
-                  e.preventDefault();
-                  const newTag = e.target.value.trim().toLowerCase();
-                  if (!currentTags.includes(newTag)) {
-                    setCurrentTags([...currentTags, newTag]);
-                  }
-                  e.target.value = "";
-                }
-              }}
+              value={uploadFilename}
+              onChange={(e) => setUploadFilename(e.target.value)}
+              placeholder="Enter a filename"
+              style={{ marginTop: "8px" }}
+              disabled={isLoadingSuggestions} // Disable while loading
             />
           </div>
         )}
-        {/* --- END NEW --- */}
+        {/* --- !! END MODIFIED !! --- */}
 
-        <button onClick={upload} disabled={!file}>
-          Upload
+        {/* --- !! MODIFIED: Pre-upload tag editor !! --- */}
+        {file && (
+          <div className="tag-editor-container">
+            <strong>Tags:</strong>
+            {/* --- !! NEW: Show loading spinner !! --- */}
+            {isLoadingSuggestions ? (
+              <div className="file-preview-loader" style={{margin: "10px 0"}}></div>
+            ) : (
+              <>
+                <div className="tags-list">
+                  {/* --- MODIFIED: Use getTagColor --- */}
+                  {currentTags.map((tag) => {
+                    const colors = getTagColor(tag);
+                    return (
+                      <span
+                        key={tag}
+                        className="tag-item"
+                        style={{ backgroundColor: colors.bg, color: colors.text }}
+                      >
+                        {tag}
+                        <button
+                          className="tag-remove-btn"
+                          style={{ color: colors.text }}
+                          onClick={() =>
+                            setCurrentTags(currentTags.filter((t) => t !== tag))
+                          }
+                        >
+                          &times;
+                        </button>
+                      </span>
+                    );
+                  })}
+                  {/* --- END MODIFIED --- */}
+                </div>
+                <input
+                  type="text"
+                  className="tag-input"
+                  placeholder="Add a tag and press Enter"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && e.target.value.trim()) {
+                      e.preventDefault();
+                      const newTag = e.target.value.trim().toLowerCase();
+                      if (!currentTags.includes(newTag)) {
+                        setCurrentTags([...currentTags, newTag]);
+                      }
+                      e.target.value = "";
+                    }
+                  }}
+                />
+              </>
+            )}
+            {/* --- !! END NEW !! --- */}
+          </div>
+        )}
+        {/* --- !! END MODIFIED !! --- */}
+
+        <button onClick={upload} disabled={!file || isLoadingSuggestions}>
+          {isLoadingSuggestions ? "..." : "Upload"}
         </button>
       </div>
 
@@ -664,6 +807,20 @@ export default function Dashboard({ token, setToken, setToast }) {
                       </div>
                       {/* --- END NEW --- */}
                       <div className="file-card-actions">
+                        {/* --- !! NEW: Edit Name Button !! --- */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openRenameModal(f);
+                          }}
+                          className="action-button rename-button"
+                          aria-label="Rename file"
+                          title="Rename file"
+                        >
+                          <FaEdit />
+                        </button>
+                        {/* --- !! END NEW !! --- */}
+
                         {/* --- NEW: Edit Tags Button --- */}
                         <button
                           onClick={(e) => {
@@ -765,6 +922,36 @@ export default function Dashboard({ token, setToken, setToast }) {
         </div>
       )}
       {/* --- END NEW MODAL --- */}
+
+      {/* --- !! NEW: Rename File Modal !! --- */}
+      {renamingFile && (
+        <div className="modal-backdrop" onClick={closeRenameModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Rename File</h2>
+            <p className="modal-filename">Current: {renamingFile.filename}</p>
+            <div className="tag-editor-container" style={{border: "none", padding: 0}}>
+              <input
+                type="text"
+                className="tag-input"
+                value={newFilename}
+                onChange={(e) => setNewFilename(e.target.value)}
+                placeholder="Enter new filename"
+                autoFocus
+              />
+            </div>
+            <div className="modal-actions">
+              <button
+                onClick={closeRenameModal}
+                className="button-secondary"
+              >
+                Cancel
+              </button>
+              <button onClick={handleRename}>Save Name</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* --- !! END NEW MODAL !! --- */}
     </div>
   );
 }

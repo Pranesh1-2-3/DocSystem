@@ -523,3 +523,12 @@
   color: #111827;
   transform: translateY(-2px);
 }
+
+.edit-tags-button:hover {
+  color: #f59e0b; /* Amber/Yellow color */
+}
+
+/* --- !! NEW STYLE FOR RENAME BUTTON !! --- */
+.rename-button:hover {
+  color: #007bff; /* Primary blue color */
+}
