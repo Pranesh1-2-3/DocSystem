@@ -50,10 +50,11 @@
 }
 
 .search-bar-container {
+  margin-top: 1.5rem;
   position: relative;
   display: flex;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .search-icon {
@@ -70,7 +71,7 @@
 .search-input {
   width: 100%;
   max-width: 400px;
-  padding: 8px 12px 8px 35px;
+  padding: 8px 12px 8px 5px;
   border: 1px solid #d1d5db;
   border-radius: var(--border-radius);
   font-size: 0.9rem;
