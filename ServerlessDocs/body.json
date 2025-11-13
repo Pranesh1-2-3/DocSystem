@@ -1,0 +1,15 @@
+{
+  "anthropic_version": "bedrock-2023-05-31",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "input": "Hi"
+        }
+      ]
+    }
+  ],
+  "max_tokens": 100
+}

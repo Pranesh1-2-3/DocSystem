@@ -3,7 +3,6 @@ import { jwtDecode } from "jwt-decode";
 import "./Dashboard.css";
 
 import {
-  // --- NEW ICONS ---
   FaFileExcel,
   FaFileWord,
   FaFilePowerpoint,
@@ -11,7 +10,6 @@ import {
   FaFileVideo,
   FaFileArchive,
   FaFileCode,
-  // --- EXISTING ICONS ---
   FaFileAlt,
   FaFileImage,
   FaFilePdf,
@@ -21,23 +19,20 @@ import {
   FaTrash,
   FaCheck,
   FaSearch,
+  FaShareAlt
 } from "react-icons/fa";
 
 const API = import.meta.env.VITE_API_BASE;
 
-// --- REPLACED getFileIcon FUNCTION ---
-// This new function returns a specific, colored icon based on file extension
+// --- getFileIcon FUNCTION ---
 const getFileIcon = (filename) => {
   const extension = filename.split(".").pop().toLowerCase();
-  
-  // Base props for all icons
   const iconProps = {
     title: filename,
-    className: "file-preview-icon", // Base class
+    className: "file-preview-icon",
   };
 
   switch (extension) {
-    // Microsoft Office
     case "doc":
     case "docx":
       return <FaFileWord {...iconProps} className={`${iconProps.className} icon-word`} />;
@@ -47,8 +42,6 @@ const getFileIcon = (filename) => {
     case "ppt":
     case "pptx":
       return <FaFilePowerpoint {...iconProps} className={`${iconProps.className} icon-ppt`} />;
-
-    // Media
     case "png":
     case "jpg":
     case "jpeg":
@@ -66,8 +59,6 @@ const getFileIcon = (filename) => {
     case "wmv":
     case "mkv":
       return <FaFileVideo {...iconProps} className={`${iconProps.className} icon-video`} />;
-
-    // Other Common Types
     case "pdf":
       return <FaFilePdf {...iconProps} className={`${iconProps.className} icon-pdf`} />;
     case "zip":
@@ -90,16 +81,12 @@ const getFileIcon = (filename) => {
     case "txt":
     case "md":
       return <FaFileAlt {...iconProps} className={`${iconProps.className} icon-text`} />;
-
-    // Default
     default:
       return <FaFile {...iconProps} className={`${iconProps.className} icon-default`} />;
   }
 };
-// --- END REPLACED FUNCTION ---
 
-
-// Component to handle image previews (This remains the same)
+// --- FilePreview Component ---
 function FilePreview({ file, token }) {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -119,9 +106,7 @@ function FilePreview({ file, token }) {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        if (data.downloadUrl) {
-          setPreviewUrl(data.downloadUrl);
-        }
+        if (data.downloadUrl) setPreviewUrl(data.downloadUrl);
       } catch (err) {
         console.error("Failed to fetch preview:", err);
       } finally {
@@ -132,9 +117,7 @@ function FilePreview({ file, token }) {
     fetchPreviewUrl();
   }, [file.fileId, file.filename, isImage, token]);
 
-  if (isLoading) {
-    return <div className="file-preview-loader"></div>;
-  }
+  if (isLoading) return <div className="file-preview-loader"></div>;
 
   if (isImage && previewUrl) {
     return (
@@ -146,14 +129,10 @@ function FilePreview({ file, token }) {
     );
   }
 
-  // Fallback to the NEW getFileIcon function
   return getFileIcon(file.filename);
 }
 
-//
-// ... The rest of your Dashboard.jsx component ...
-// (No other changes are needed in this file)
-//
+// --- Dashboard Component ---
 export default function Dashboard({ token, setToken, setToast }) {
   const [file, setFile] = useState(null);
   const [files, setFiles] = useState([]);
@@ -175,12 +154,11 @@ export default function Dashboard({ token, setToken, setToast }) {
         setFiles(data.files);
       } else {
         setFiles([]);
-        console.warn("Unexpected /files response:", data);
       }
       setShowFiles(true);
     } catch (err) {
       console.error("Error fetching files:", err);
-      setToast("Failed to fetch files. Check console for details.", "error");
+      setToast("Failed to fetch files.", "error");
     }
   };
 
@@ -215,8 +193,7 @@ export default function Dashboard({ token, setToken, setToast }) {
       setToast("No files selected!", "error");
       return;
     }
-    if (!window.confirm("Are you sure you want to delete the selected files?"))
-      return;
+    if (!window.confirm("Are you sure you want to delete the selected files?")) return;
 
     let deleteFailed = false;
     for (const file of selectedFiles) {
@@ -231,11 +208,9 @@ export default function Dashboard({ token, setToken, setToast }) {
       }
     }
 
-    if (deleteFailed) {
-      setToast("Some files failed to delete. Check console.", "error");
-    } else {
-      setToast("Selected files deleted!", "success");
-    }
+    if (deleteFailed) setToast("Some files failed to delete.", "error");
+    else setToast("Selected files deleted!", "success");
+
     fetchFiles();
     setSelectedFiles([]);
   };
@@ -270,33 +245,48 @@ export default function Dashboard({ token, setToken, setToast }) {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem("token");
-    setToken(null);
-  };
-  
   const handleDownload = async (fileId) => {
     try {
-      const res = await fetch(
-        `${API}/download?fileId=${fileId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const res = await fetch(`${API}/download?fileId=${fileId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
-      if (data.downloadUrl) {
-        window.open(data.downloadUrl, "_blank");
-      } else {
-        setToast("Failed to get download link", "error");
-      }
+      if (data.downloadUrl) window.open(data.downloadUrl, "_blank");
+      else setToast("Failed to get download link", "error");
     } catch (err) {
       console.error("Download failed:", err);
       setToast("Error downloading file.", "error");
     }
   };
 
-  const user = jwtDecode(token);
+  // ✅ NEW SHARE HANDLER
+  const handleShare = async (fileId) => {
+    const recipient = prompt("Enter recipient email:");
+    console.log("REAL SHARE URL:", `${API}/share?fileId=${fileId}&recipient=${recipient}`);
+    if (!recipient) return;
+    try {
+      const res = await fetch(`${API}/share?fileId=${fileId}&recipient=${recipient}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
+
+
+      const data = await res.json();
+      if (data.message) setToast(data.message, "success");
+      else setToast("Failed to share file.", "error");
+    } catch (err) {
+      console.error("Error sharing file:", err);
+      setToast("Failed to share file.", "error");
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    setToken(null);
+  };
+
+  const user = jwtDecode(token);
   const filteredFiles = files.filter((file) =>
     file.filename.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -330,17 +320,18 @@ export default function Dashboard({ token, setToken, setToast }) {
 
       {showFiles && (
         <div className="files-section">
+          <div className="search-bar-container">
+            {!searchTerm && <FaSearch className="search-icon" />}
+            <input
+              type="text"
+              placeholder="Search files..."
+              className="search-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
           <div className="files-toolbar">
-            <div className="search-bar-container">
-              <FaSearch className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search files..."
-                className="search-input"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
             <button
               onClick={deleteSelected}
               disabled={selectedFiles.length === 0}
@@ -354,7 +345,7 @@ export default function Dashboard({ token, setToken, setToast }) {
             </button>
           </div>
 
-          {/* --- NEW GRID LAYOUT --- */}
+          {/* --- GRID LAYOUT --- */}
           <div className="file-grid-container">
             {filteredFiles.length === 0 ? (
               <div className="no-files-message">
@@ -369,12 +360,6 @@ export default function Dashboard({ token, setToken, setToast }) {
                   <div
                     key={f.fileId}
                     className={`file-card ${isSelected ? "selected" : ""}`}
-                    // Toggle selection when clicking the card, but not on buttons
-                    onClick={(e) => {
-                      if (!e.target.closest('button')) {
-                        toggleFileSelection(f)
-                      }
-                    }}
                   >
                     <input
                       type="checkbox"
@@ -383,8 +368,8 @@ export default function Dashboard({ token, setToken, setToast }) {
                       className="file-card-checkbox"
                       aria-label={`Select ${f.filename}`}
                     />
-                    
-                    <div className="file-card-preview" title={`Download ${f.filename}`} onClick={() => handleDownload(f.fileId)}>
+
+                    <div className="file-card-preview" title={`Preview ${f.filename}`}>
                       <FilePreview file={f} token={token} />
                     </div>
 
@@ -401,13 +386,9 @@ export default function Dashboard({ token, setToken, setToast }) {
                           aria-label="Copy download link"
                           title="Copy download link"
                         >
-                          {copiedFileId === f.fileId ? (
-                            <FaCheck />
-                          ) : (
-                            <FaLink />
-                          )}
+                          {copiedFileId === f.fileId ? <FaCheck /> : <FaLink />}
                         </button>
-                        
+
                         <button
                           onClick={() => handleDownload(f.fileId)}
                           className="action-button download-button"
@@ -416,6 +397,16 @@ export default function Dashboard({ token, setToken, setToast }) {
                         >
                           <FaDownload />
                         </button>
+
+                        {/* ✅ NEW SHARE BUTTON */}
+                        <button
+                          onClick={() => handleShare(f.fileId)}
+                          className="action-button share-button"
+                          aria-label="Share file"
+                          title="Share file"
+                        >
+                          <FaShareAlt /> Share
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -423,8 +414,6 @@ export default function Dashboard({ token, setToken, setToast }) {
               })
             )}
           </div>
-          {/* --- END GRID LAYOUT --- */}
-          
         </div>
       )}
     </div>
