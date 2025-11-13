@@ -76,8 +76,8 @@ export default function App() {
           onClose={() => setToast(null)}
         />
       )}
-      {/* <Dashboard token={token} setToken={setToken} setToast={showToast} /> */}
-      <BedrockTest/>
+      <Dashboard token={token} setToken={setToken} setToast={showToast} />
+      {/* <BedrockTest/> */}
     </>
   );
 }

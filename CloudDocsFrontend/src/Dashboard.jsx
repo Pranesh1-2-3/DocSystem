@@ -3,7 +3,6 @@ import { jwtDecode } from "jwt-decode";
 import "./Dashboard.css";
 
 import {
-  // --- NEW ICONS ---
   FaFileExcel,
   FaFileWord,
   FaFilePowerpoint,
@@ -11,7 +10,6 @@ import {
   FaFileVideo,
   FaFileArchive,
   FaFileCode,
-  // --- EXISTING ICONS ---
   FaFileAlt,
   FaFileImage,
   FaFilePdf,
@@ -21,67 +19,52 @@ import {
   FaTrash,
   FaCheck,
   FaSearch,
-  // --- ADDED FOR TAGS ---
   FaTags,
-  // --- !! NEW ICON FOR RENAME !! ---
   FaEdit,
+  FaShareAlt
 } from "react-icons/fa";
 
 const API = import.meta.env.VITE_API_BASE;
 
-// --- NEW: Color list for tags ---
-// (This section is unchanged)
 const PREDEFINED_COLORS = [
-  { bg: "#E57373", text: "#000000" }, // Red
-  { bg: "#F06292", text: "#000000" }, // Pink
-  { bg: "#BA68C8", text: "#FFFFFF" }, // Purple
-  { bg: "#9575CD", text: "#FFFFFF" }, // Deep Purple
-  { bg: "#7986CB", text: "#FFFFFF" }, // Indigo
-  { bg: "#64B5F6", text: "#000000" }, // Blue
-  { bg: "#4FC3F7", text: "#000000" }, // Light Blue
-  { bg: "#4DD0E1", text: "#000000" }, // Cyan
-  { bg: "#4DB6AC", text: "#000000" }, // Teal
-  { bg: "#81C784", text: "#000000" }, // Green
-  { bg: "#AED581", text: "#000000" }, // Light Green
-  { bg: "#DCE775", text: "#000000" }, // Lime
-  { bg: "#FFF176", text: "#000000" }, // Yellow
-  { bg: "#FFD54F", text: "#000000" }, // Amber
-  { bg: "#FFB74D", text: "#000000" }, // Orange
-  { bg: "#FF8A65", text: "#000000" }, // Deep Orange
-  { bg: "#A1887F", text: "#FFFFFF" }, // Brown
-  { bg: "#90A4AE", text: "#000000" }, // Blue Grey
+  { bg: "#E57373", text: "#000000" },
+  { bg: "#F06292", text: "#000000" },
+  { bg: "#BA68C8", text: "#FFFFFF" },
+  { bg: "#9575CD", text: "#FFFFFF" },
+  { bg: "#7986CB", text: "#FFFFFF" },
+  { bg: "#64B5F6", text: "#000000" },
+  { bg: "#4FC3F7", text: "#000000" },
+  { bg: "#4DD0E1", text: "#000000" },
+  { bg: "#4DB6AC", text: "#000000" },
+  { bg: "#81C784", text: "#000000" },
+  { bg: "#AED581", text: "#000000" },
+  { bg: "#DCE775", text: "#000000" },
+  { bg: "#FFF176", text: "#000000" },
+  { bg: "#FFD54F", text: "#000000" },
+  { bg: "#FFB74D", text: "#000000" },
+  { bg: "#FF8A65", text: "#000000" },
+  { bg: "#A1887F", text: "#FFFFFF" },
+  { bg: "#90A4AE", text: "#000000" },
 ];
 
-// --- NEW: Helper function to get a consistent color based on tag name ---
-// (This section is unchanged)
 const getTagColor = (tag) => {
-  // Create a simple hash from the tag string
   let hash = 0;
   for (let i = 0; i < tag.length; i++) {
     hash = tag.charCodeAt(i) + ((hash << 5) - hash);
   }
-  hash = Math.abs(hash); // Ensure positive number
-  
-  // Pick a color from the predefined list
+  hash = Math.abs(hash);
   const index = hash % PREDEFINED_COLORS.length;
   return PREDEFINED_COLORS[index];
 };
-// --- END NEW ---
 
-
-// --- REPLACED getFileIcon FUNCTION ---
-// (This section is unchanged)
 const getFileIcon = (filename) => {
   const extension = filename.split(".").pop().toLowerCase();
-  
-  // Base props for all icons
   const iconProps = {
     title: filename,
-    className: "file-preview-icon", // Base class
+    className: "file-preview-icon",
   };
 
   switch (extension) {
-    // Microsoft Office
     case "doc":
     case "docx":
       return <FaFileWord {...iconProps} className={`${iconProps.className} icon-word`} />;
@@ -91,8 +74,6 @@ const getFileIcon = (filename) => {
     case "ppt":
     case "pptx":
       return <FaFilePowerpoint {...iconProps} className={`${iconProps.className} icon-ppt`} />;
-
-    // Media
     case "png":
     case "jpg":
     case "jpeg":
@@ -110,8 +91,6 @@ const getFileIcon = (filename) => {
     case "wmv":
     case "mkv":
       return <FaFileVideo {...iconProps} className={`${iconProps.className} icon-video`} />;
-
-    // Other Common Types
     case "pdf":
       return <FaFilePdf {...iconProps} className={`${iconProps.className} icon-pdf`} />;
     case "zip":
@@ -134,18 +113,12 @@ const getFileIcon = (filename) => {
     case "txt":
     case "md":
       return <FaFileAlt {...iconProps} className={`${iconProps.className} icon-text`} />;
-
-    // Default
     default:
       return <FaFile {...iconProps} className={`${iconProps.className} icon-default`} />;
   }
 };
-// --- END REPLACED FUNCTION ---
 
-
-// Component to handle image previews (This remains the same)
 function FilePreview({ file, token }) {
-  // (This section is unchanged)
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -164,9 +137,7 @@ function FilePreview({ file, token }) {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        if (data.downloadUrl) {
-          setPreviewUrl(data.downloadUrl);
-        }
+        if (data.downloadUrl) setPreviewUrl(data.downloadUrl);
       } catch (err) {
         console.error("Failed to fetch preview:", err);
       } finally {
@@ -177,9 +148,7 @@ function FilePreview({ file, token }) {
     fetchPreviewUrl();
   }, [file.fileId, file.filename, isImage, token]);
 
-  if (isLoading) {
-    return <div className="file-preview-loader"></div>;
-  }
+  if (isLoading) return <div className="file-preview-loader"></div>;
 
   if (isImage && previewUrl) {
     return (
@@ -191,14 +160,9 @@ function FilePreview({ file, token }) {
     );
   }
 
-  // Fallback to the NEW getFileIcon function
   return getFileIcon(file.filename);
 }
 
-//
-// ... The rest of your Dashboard.jsx component ...
-// (No other changes are needed in this file)
-//
 export default function Dashboard({ token, setToken, setToast }) {
   const [file, setFile] = useState(null);
   const [files, setFiles] = useState([]);
@@ -206,31 +170,19 @@ export default function Dashboard({ token, setToken, setToast }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [copiedFileId, setCopiedFileId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-
-  // --- !! NEW STATE FOR UPLOAD FILENAME !! ---
   const [uploadFilename, setUploadFilename] = useState("");
-  // --- !! END NEW STATE !! ---
-
-  // --- !! NEW: State for loading suggestions !! ---
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
-  // --- !! END NEW !! ---
-
-  // --- NEW STATE FOR TAGS ---
   const [currentTags, setCurrentTags] = useState([]);
-  const [editingFile, setEditingFile] = useState(null); // For tag edit modal
+  const [editingFile, setEditingFile] = useState(null);
   const [modalTags, setModalTags] = useState([]);
   const [allTags, setAllTags] = useState([]);
   const [selectedTagFilter, setSelectedTagFilter] = useState(null);
-  // --- END NEW STATE ---
-
-  // --- !! NEW STATE FOR RENAME MODAL !! ---
-  const [renamingFile, setRenamingFile] = useState(null); // { fileId, filename }
+  const [renamingFile, setRenamingFile] = useState(null);
   const [newFilename, setNewFilename] = useState("");
-  // --- !! END NEW STATE !! ---
 
+  const user = jwtDecode(token);
 
   const fetchFiles = async () => {
-    // (This section is unchanged)
     try {
       const res = await fetch(`${API}/files`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -240,15 +192,15 @@ export default function Dashboard({ token, setToken, setToast }) {
 
       if (Array.isArray(data)) {
         fetchedFiles = data;
-      } else if (Array.isArray(data.files)) { // Keep old logic just in case
+      } else if (Array.isArray(data.files)) {
         fetchedFiles = data.files;
       } else {
         console.warn("Unexpected /files response:", data);
+        setFiles([]);
       }
       
       setFiles(fetchedFiles);
 
-      // --- NEW: Compile unique tags ---
       let uniqueTags = new Set();
       fetchedFiles.forEach(file => {
         if (file.tags) {
@@ -256,12 +208,11 @@ export default function Dashboard({ token, setToken, setToast }) {
         }
       });
       setAllTags([...uniqueTags].sort());
-      // --- END NEW ---
 
       setShowFiles(true);
     } catch (err) {
       console.error("Error fetching files:", err);
-      setToast("Failed to fetch files. Check console for details.", "error");
+      setToast("Failed to fetch files.", "error");
     }
   };
 
@@ -269,7 +220,6 @@ export default function Dashboard({ token, setToken, setToast }) {
     fetchFiles();
   }, []);
 
-  // --- !! MODIFIED: getSuggestedTags now just gets tags !! ---
   const getSuggestedTags = async (filename) => {
     try {
       const res = await fetch(`${API}/suggest-tags?filename=${encodeURIComponent(filename)}`, {
@@ -277,16 +227,13 @@ export default function Dashboard({ token, setToken, setToast }) {
       });
       const data = await res.json();
       if (data.tags && Array.isArray(data.tags)) {
-        setCurrentTags(data.tags); // Auto-apply suggestions
+        setCurrentTags(data.tags);
       }
     } catch (err) {
       console.error("Error fetching tag suggestions:", err);
-      // Fail silently, don't toast
     }
   };
-  // --- !! END MODIFIED FUNCTION !! ---
 
-  // --- !! NEW: Function to get AI name suggestion !! ---
   const getSuggestedName = async (filename) => {
     try {
       const res = await fetch(`${API}/suggest-name?filename=${encodeURIComponent(filename)}`, {
@@ -294,33 +241,26 @@ export default function Dashboard({ token, setToken, setToast }) {
       });
       const data = await res.json();
       if (data.suggested_name) {
-        setUploadFilename(data.suggested_name); // Auto-apply suggestion
+        setUploadFilename(data.suggested_name);
       } else {
-        setUploadFilename(filename); // Fallback
+        setUploadFilename(filename);
       }
     } catch (err) {
       console.error("Error fetching name suggestion:", err);
-      setUploadFilename(filename); // Fallback
+      setUploadFilename(filename);
     }
   };
-  // --- !! END NEW FUNCTION !! ---
 
-
-  // --- !! NEW: Function to get ALL suggestions !! ---
   const fetchSuggestions = async (filename) => {
     setIsLoadingSuggestions(true);
-    // Kick off both requests in parallel
     await Promise.all([
       getSuggestedName(filename),
       getSuggestedTags(filename)
     ]);
     setIsLoadingSuggestions(false);
   };
-  // --- !! END NEW FUNCTION !! ---
 
-  // --- !! MODIFIED: upload FUNCTION !! ---
   const upload = async () => {
-    // (This function's logic is unchanged, it already reads from uploadFilename)
     if (!file) {
       setToast("Select a file first!", "error");
       return;
@@ -346,8 +286,8 @@ export default function Dashboard({ token, setToken, setToast }) {
       await fetch(data.uploadUrl, { method: "PUT", body: file });
       setToast("File uploaded successfully!", "success");
       setFile(null);
-      setUploadFilename(""); // Clear filename input
-      setCurrentTags([]); // Clear tags after upload
+      setUploadFilename("");
+      setCurrentTags([]);
       document.querySelector('input[type="file"]').value = "";
       fetchFiles();
     } catch (err) {
@@ -355,16 +295,13 @@ export default function Dashboard({ token, setToken, setToast }) {
       setToast("File upload failed.", "error");
     }
   };
-  // --- !! END MODIFIED upload !! ---
 
   const deleteSelected = async () => {
-    // (This section is unchanged)
     if (selectedFiles.length === 0) {
       setToast("No files selected!", "error");
       return;
     }
-    if (!window.confirm("Are you sure you want to delete the selected files?"))
-      return;
+    if (!window.confirm("Are you sure you want to delete the selected files?")) return;
 
     let deleteFailed = false;
     for (const file of selectedFiles) {
@@ -379,17 +316,14 @@ export default function Dashboard({ token, setToken, setToast }) {
       }
     }
 
-    if (deleteFailed) {
-      setToast("Some files failed to delete. Check console.", "error");
-    } else {
-      setToast("Selected files deleted!", "success");
-    }
+    if (deleteFailed) setToast("Some files failed to delete.", "error");
+    else setToast("Selected files deleted!", "success");
+
     fetchFiles();
     setSelectedFiles([]);
   };
 
   const toggleFileSelection = (file) => {
-    // (This section is unchanged)
     setSelectedFiles((prev) => {
       if (prev.some((f) => f.fileId === file.fileId)) {
         return prev.filter((f) => f.fileId !== file.fileId);
@@ -400,7 +334,6 @@ export default function Dashboard({ token, setToken, setToast }) {
   };
 
   const copyLink = async (fileId) => {
-    // (This section is unchanged)
     try {
       const res = await fetch(`${API}/download?fileId=${fileId}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -420,49 +353,54 @@ export default function Dashboard({ token, setToken, setToast }) {
     }
   };
 
-  const logout = () => {
-    // (This section is unchanged)
-    localStorage.removeItem("token");
-    setToken(null);
-  };
-  
   const handleDownload = async (fileId) => {
-    // (This section is unchanged)
     try {
-      const res = await fetch(
-        `${API}/download?fileId=${fileId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const res = await fetch(`${API}/download?fileId=${fileId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
-      if (data.downloadUrl) {
-        window.open(data.downloadUrl, "_blank");
-      } else {
-        setToast("Failed to get download link", "error");
-      }
+      if (data.downloadUrl) window.open(data.downloadUrl, "_blank");
+      else setToast("Failed to get download link", "error");
     } catch (err) {
       console.error("Download failed:", err);
       setToast("Error downloading file.", "error");
     }
   };
 
-  // --- NEW: Tag Modal Functions ---
+  const handleShare = async (fileId) => {
+    const recipient = prompt("Enter recipient email:");
+    if (!recipient) return;
+    
+    try {
+      const res = await fetch(`${API}/share?fileId=${fileId}&recipient=${encodeURIComponent(recipient)}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const data = await res.json();
+      if (data.message) {
+        setToast(data.message, "success");
+      } else {
+        setToast("Failed to share file.", "error");
+      }
+    } catch (err) {
+      console.error("Error sharing file:", err);
+      setToast("Failed to share file.", "error");
+    }
+  };
+
   const openTagEditor = (file) => {
-    // (This section is unchanged)
     setEditingFile(file);
     setModalTags(file.tags || []);
   };
 
   const closeTagEditor = () => {
-    // (This section is unchanged)
     setEditingFile(null);
     setModalTags([]);
   };
 
   const handleModalTagKeydown = (e) => {
-    // (This section is unchanged)
-     if (e.key === "Enter" && e.target.value.trim()) {
+    if (e.key === "Enter" && e.target.value.trim()) {
       e.preventDefault();
       const newTag = e.target.value.trim().toLowerCase();
       if (!modalTags.includes(newTag)) {
@@ -470,10 +408,9 @@ export default function Dashboard({ token, setToken, setToast }) {
       }
       e.target.value = "";
     }
-  }
+  };
 
   const saveTags = async () => {
-    // (This section is unchanged)
     if (!editingFile) return;
     try {
       const res = await fetch(`${API}/files/${editingFile.fileId}/tags`, {
@@ -488,15 +425,13 @@ export default function Dashboard({ token, setToken, setToast }) {
       
       setToast("Tags updated!", "success");
       closeTagEditor();
-      fetchFiles(); // Refresh file list to show new tags
+      fetchFiles();
     } catch (err) {
       console.error("Error saving tags:", err);
       setToast("Failed to save tags.", "error");
     }
   };
-  // --- END NEW FUNCTIONS ---
 
-  // --- !! NEW: Rename Modal Functions !! ---
   const openRenameModal = (file) => {
     setRenamingFile(file);
     setNewFilename(file.filename);
@@ -537,25 +472,23 @@ export default function Dashboard({ token, setToken, setToast }) {
       
       setToast("File renamed successfully!", "success");
       closeRenameModal();
-      fetchFiles(); // Refresh file list to show new name
+      fetchFiles();
     } catch (err) {
       console.error("Error renaming file:", err);
       setToast(`Rename failed: ${err.message}`, "error");
     }
   };
-  // --- !! END NEW FUNCTIONS !! ---
 
+  const logout = () => {
+    localStorage.removeItem("token");
+    setToken(null);
+  };
 
-  const user = jwtDecode(token);
-
-  // --- MODIFIED: Filtered files logic ---
   const filteredFiles = files.filter((file) => {
-    // (This section is unchanged)
     const matchesSearch = file.filename.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTag = !selectedTagFilter || (file.tags && file.tags.includes(selectedTagFilter));
     return matchesSearch && matchesTag;
   });
-  // --- END MODIFIED ---
 
   return (
     <div className="dashboard-container">
@@ -572,27 +505,23 @@ export default function Dashboard({ token, setToken, setToast }) {
       <hr />
 
       <div className="upload-section">
-        {/* --- !! MODIFIED: File input onChange !! --- */}
         <input
           type="file"
           onChange={(e) => {
             const selectedFile = e.target.files[0];
             setFile(selectedFile);
             if (selectedFile) {
-              // --- !! NEW: Call suggestion fetcher !! ---
-              setUploadFilename("Generating name..."); // Placeholder
+              setUploadFilename("Generating name...");
               setCurrentTags([]);
               fetchSuggestions(selectedFile.name);
             } else {
-              setUploadFilename(""); // Clear filename input
+              setUploadFilename("");
               setCurrentTags([]);
               setIsLoadingSuggestions(false);
             }
           }}
         />
-        {/* --- !! END MODIFIED !! --- */}
 
-        {/* --- !! MODIFIED: Pre-upload filename editor !! --- */}
         {file && (
           <div className="tag-editor-container" style={{ margin: "1rem 0" }}>
             <strong>Filename:</strong>
@@ -603,23 +532,19 @@ export default function Dashboard({ token, setToken, setToast }) {
               onChange={(e) => setUploadFilename(e.target.value)}
               placeholder="Enter a filename"
               style={{ marginTop: "8px" }}
-              disabled={isLoadingSuggestions} // Disable while loading
+              disabled={isLoadingSuggestions}
             />
           </div>
         )}
-        {/* --- !! END MODIFIED !! --- */}
 
-        {/* --- !! MODIFIED: Pre-upload tag editor !! --- */}
         {file && (
           <div className="tag-editor-container">
             <strong>Tags:</strong>
-            {/* --- !! NEW: Show loading spinner !! --- */}
             {isLoadingSuggestions ? (
               <div className="file-preview-loader" style={{margin: "10px 0"}}></div>
             ) : (
               <>
                 <div className="tags-list">
-                  {/* --- MODIFIED: Use getTagColor --- */}
                   {currentTags.map((tag) => {
                     const colors = getTagColor(tag);
                     return (
@@ -641,7 +566,6 @@ export default function Dashboard({ token, setToken, setToast }) {
                       </span>
                     );
                   })}
-                  {/* --- END MODIFIED --- */}
                 </div>
                 <input
                   type="text"
@@ -660,10 +584,8 @@ export default function Dashboard({ token, setToken, setToast }) {
                 />
               </>
             )}
-            {/* --- !! END NEW !! --- */}
           </div>
         )}
-        {/* --- !! END MODIFIED !! --- */}
 
         <button onClick={upload} disabled={!file || isLoadingSuggestions}>
           {isLoadingSuggestions ? "..." : "Upload"}
@@ -682,7 +604,7 @@ export default function Dashboard({ token, setToken, setToast }) {
         <div className="files-section">
           <div className="files-toolbar">
             <div className="search-bar-container">
-              <FaSearch className="search-icon" />
+              {!searchTerm && <FaSearch className="search-icon" />}
               <input
                 type="text"
                 placeholder="Search files..."
@@ -692,7 +614,6 @@ export default function Dashboard({ token, setToken, setToast }) {
               />
             </div>
 
-            {/* --- NEW: Tag Filter --- */}
             <div className="tag-filter-container">
               <FaTags className="tag-filter-icon" />
               <select
@@ -717,7 +638,6 @@ export default function Dashboard({ token, setToken, setToast }) {
                 </button>
               )}
             </div>
-            {/* --- END NEW --- */}
 
             <button
               onClick={deleteSelected}
@@ -732,7 +652,6 @@ export default function Dashboard({ token, setToken, setToast }) {
             </button>
           </div>
 
-          {/* --- NEW GRID LAYOUT --- */}
           <div className="file-grid-container">
             {filteredFiles.length === 0 ? (
               <div className="no-files-message">
@@ -749,7 +668,6 @@ export default function Dashboard({ token, setToken, setToast }) {
                   <div
                     key={f.fileId}
                     className={`file-card ${isSelected ? "selected" : ""}`}
-                    // Toggle selection when clicking the card, but not on buttons
                     onClick={(e) => {
                       if (!e.target.closest("button, .file-card-preview")) {
                         toggleFileSelection(f);
@@ -776,9 +694,7 @@ export default function Dashboard({ token, setToken, setToast }) {
                       <span className="file-card-name" title={f.filename}>
                         {f.filename}
                       </span>
-                      {/* --- NEW: Tag Display on Card --- */}
                       <div className="file-card-tags">
-                        {/* --- MODIFIED: Use getTagColor --- */}
                         {f.tags &&
                           f.tags.slice(0, 2).map((tag) => {
                             const colors = getTagColor(tag);
@@ -795,7 +711,6 @@ export default function Dashboard({ token, setToken, setToast }) {
                               </span>
                             );
                           })}
-                        {/* --- END MODIFIED --- */}
                         {f.tags && f.tags.length > 2 && (
                           <span
                             className="tag-item-small tag-item-small-more"
@@ -805,9 +720,7 @@ export default function Dashboard({ token, setToken, setToast }) {
                           </span>
                         )}
                       </div>
-                      {/* --- END NEW --- */}
                       <div className="file-card-actions">
-                        {/* --- !! NEW: Edit Name Button !! --- */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -819,9 +732,7 @@ export default function Dashboard({ token, setToken, setToast }) {
                         >
                           <FaEdit />
                         </button>
-                        {/* --- !! END NEW !! --- */}
 
-                        {/* --- NEW: Edit Tags Button --- */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -833,7 +744,7 @@ export default function Dashboard({ token, setToken, setToast }) {
                         >
                           <FaTags />
                         </button>
-                        {/* --- END NEW --- */}
+
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -859,6 +770,18 @@ export default function Dashboard({ token, setToken, setToast }) {
                         >
                           <FaDownload />
                         </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShare(f.fileId);
+                          }}
+                          className="action-button share-button"
+                          aria-label="Share file"
+                          title="Share file"
+                        >
+                          <FaShareAlt />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -866,11 +789,9 @@ export default function Dashboard({ token, setToken, setToast }) {
               })
             )}
           </div>
-          {/* --- END GRID LAYOUT --- */}
         </div>
       )}
 
-      {/* --- NEW: Tag Editor Modal --- */}
       {editingFile && (
         <div className="modal-backdrop" onClick={closeTagEditor}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -878,7 +799,6 @@ export default function Dashboard({ token, setToken, setToast }) {
             <p className="modal-filename">{editingFile.filename}</p>
             <div className="tag-editor-container">
               <div className="tags-list">
-                {/* --- MODIFIED: Use getTagColor --- */}
                 {modalTags.map((tag) => {
                   const colors = getTagColor(tag);
                   return (
@@ -900,7 +820,6 @@ export default function Dashboard({ token, setToken, setToast }) {
                     </span>
                   );
                 })}
-                {/* --- END MODIFIED --- */}
               </div>
               <input
                 type="text"
@@ -921,9 +840,7 @@ export default function Dashboard({ token, setToken, setToast }) {
           </div>
         </div>
       )}
-      {/* --- END NEW MODAL --- */}
 
-      {/* --- !! NEW: Rename File Modal !! --- */}
       {renamingFile && (
         <div className="modal-backdrop" onClick={closeRenameModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -951,7 +868,6 @@ export default function Dashboard({ token, setToken, setToast }) {
           </div>
         </div>
       )}
-      {/* --- !! END NEW MODAL !! --- */}
     </div>
   );
 }

@@ -49,31 +49,27 @@
   margin-top: 20px;
 }
 
-/* Toolbar is correctly aligned with flexbox */
-.files-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  flex-wrap: wrap; /* Allow wrapping on small screens */
-  gap: 15px;
-}
-
 .search-bar-container {
   position: relative;
   display: flex;
   align-items: center;
+  margin-bottom: 1.5rem;
 }
 
 .search-icon {
+  top: 14px;
   position: absolute;
-  left: 12px;
+  left: 120px;
   color: #6b7280;
   font-size: 0.9rem;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  opacity: 1;
 }
 
 .search-input {
-  width: 300px;
+  width: 100%;
+  max-width: 400px;
   padding: 8px 12px 8px 35px;
   border: 1px solid #d1d5db;
   border-radius: var(--border-radius);
@@ -83,6 +79,16 @@
 .search-input:focus {
   border-color: var(--primary-color);
   outline: none;
+}
+
+/* Toolbar is correctly aligned with flexbox */
+.files-toolbar {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 15px;
 }
 
 .delete-button {
@@ -173,7 +179,7 @@
 
 /* This is the icon for non-image files */
 .file-preview-icon {
-  font-size: 4rem; 
+  font-size: 4rem;
   color: #4b5563;
 }
 
@@ -259,7 +265,6 @@
   color: #28a745; /* Show green check */
 }
 
-
 /* --- RESPONSIVENESS --- */
 
 /* 2 columns for tablets */
@@ -277,7 +282,7 @@
   .file-grid-container {
     grid-template-columns: 1fr;
   }
-  
+
   .files-toolbar {
     flex-direction: column;
     align-items: stretch; /* Full width */
@@ -303,19 +308,40 @@
 }
 
 /* --- NEW BRANDED ICON COLORS --- */
-.icon-word { color: #2b579a; }
-.icon-excel { color: #1d6f42; }
-.icon-ppt { color: #d04423; }
-.icon-pdf { color: #e53e3e; }
-.icon-image { color: #ac40c4; }
-.icon-audio { color: #f38f00; }
-.icon-video { color: #a13d9d; }
-.icon-archive { color: #f0c000; }
-.icon-code { color: #007acc; }
-.icon-text { color: #555; }
-.icon-default { color: #6b7280; }
+.icon-word {
+  color: #2b579a;
+}
+.icon-excel {
+  color: #1d6f42;
+}
+.icon-ppt {
+  color: #d04423;
+}
+.icon-pdf {
+  color: #e53e3e;
+}
+.icon-image {
+  color: #ac40c4;
+}
+.icon-audio {
+  color: #f38f00;
+}
+.icon-video {
+  color: #a13d9d;
+}
+.icon-archive {
+  color: #f0c000;
+}
+.icon-code {
+  color: #007acc;
+}
+.icon-text {
+  color: #555;
+}
+.icon-default {
+  color: #6b7280;
+}
 /* --- END NEW BRANDED ICON COLORS --- */
-
 
 /* This is the actual image preview */
 .file-preview-image {
