@@ -3,25 +3,9 @@ import { jwtDecode } from "jwt-decode";
 import "./Dashboard.css";
 
 import {
-  FaFileExcel,
-  FaFileWord,
-  FaFilePowerpoint,
-  FaFileAudio,
-  FaFileVideo,
-  FaFileArchive,
-  FaFileCode,
-  FaFileAlt,
-  FaFileImage,
-  FaFilePdf,
-  FaFile,
-  FaDownload,
-  FaLink,
-  FaTrash,
-  FaCheck,
-  FaSearch,
-  FaTags,
-  FaEdit,
-  FaShareAlt
+  FaFileExcel,FaFileWord,FaFilePowerpoint,FaFileAudio,FaFileVideo,FaFileArchive,
+  FaFileCode,FaFileAlt,FaFileImage,FaFilePdf,FaFile,FaDownload,FaLink,FaTrash,FaCheck,
+  FaSearch,FaTags,FaEdit,FaShareAlt
 } from "react-icons/fa";
 
 const API = import.meta.env.VITE_API_BASE;
@@ -665,11 +649,11 @@ export default function Dashboard({ token, setToken, setToast }) {
                   (sf) => sf.fileId === f.fileId
                 );
                 return (
-                  <div
+                   <div
                     key={f.fileId}
                     className={`file-card ${isSelected ? "selected" : ""}`}
                     onClick={(e) => {
-                      if (!e.target.closest("button, .file-card-preview")) {
+                      if (!e.target.closest("button, .file-card-preview, .file-card-checkbox")) {
                         toggleFileSelection(f);
                       }
                     }}
@@ -677,7 +661,10 @@ export default function Dashboard({ token, setToken, setToast }) {
                     <input
                       type="checkbox"
                       checked={isSelected}
-                      onChange={() => toggleFileSelection(f)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        toggleFileSelection(f);
+                      }}
                       className="file-card-checkbox"
                       aria-label={`Select ${f.filename}`}
                     />
